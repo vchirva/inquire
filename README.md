@@ -1,64 +1,62 @@
 # Inquire
 
-A lightweight questionnaire platform with one-time invitation links and an admin dashboard.
+Lightweight questionnaire platform. Three roles (admin, client, respondent), one-time anonymous response links, dashboards per client, optional LLM-enriched PDF reports.
 
-Built as a static frontend backed by Supabase (Postgres + Auth + Row Level Security). No server to run, free to host.
-
-## Status
-
-🚧 **Work in progress** — currently a UI mock of the admin dashboard. Data layer and respondent flow next.
+🌐 **Live:** https://vchirva.github.io/inquire/
 
 ## Stack
 
-- **Frontend:** vanilla HTML / CSS / JS (no build step)
-- **Hosting:** GitHub Pages
-- **Backend:** Supabase (Postgres + Auth + RLS)
-- **Charts:** Chart.js (planned)
+- **Frontend:** vanilla HTML / CSS / JS (no build step) · Sigma Software design language
+- **Hosting:** GitHub Pages (free, static)
+- **Backend:** Supabase — Postgres + Auth + Row Level Security + Edge Functions
+- **PDF reports:** server-rendered via Supabase Edge Function (LLM-enriched if configured)
 
 ## Project structure
 
 ```
 inquire/
-├── public/              # static site (deployed)
-│   └── index.html       # admin dashboard mock
-├── docs/                # design notes, schema, etc.
+├── index.html                       # admin dashboard (entry point — served by GitHub Pages)
+├── config.example.js                # template for Supabase credentials
+├── config.js                        # your real credentials (created from the example)
+├── supabase/
+│   └── migrations/
+│       └── 0001_initial_schema.sql  # database schema, RLS, RPCs
+├── docs/
+│   ├── requirements.md              # canonical spec
+│   ├── setup.md                     # how to spin everything up
+│   └── schema.md                    # ER diagram + table descriptions
 └── README.md
 ```
 
-## Local preview
+> Files at the repo root are what GitHub Pages serves. Everything in `supabase/` and `docs/` is project metadata, not part of the live site.
 
-Just open `public/index.html` in a browser. No build, no install.
+## Status
 
-```bash
-# or serve with python
-cd public && python3 -m http.server 8000
-```
-
-## Deploy to GitHub Pages
-
-1. Push to GitHub
-2. Settings → Pages → Deploy from branch `main`, folder `/public`
-3. Site will be live at `https://<your-username>.github.io/inquire/`
-
-## Roadmap
-
-- [x] Admin dashboard mock (Sigma Software design language)
-- [ ] Supabase schema + RLS policies
+- [x] Admin dashboard mock (Sigma styling)
+- [x] Database schema + RLS policies + helper RPCs
+- [x] Setup documentation
+- [ ] Supabase client + auth wiring
+- [ ] Admin: client management screen
 - [ ] Admin: questionnaire builder
-- [ ] Admin: results dashboard per questionnaire
-- [ ] Respondent: one-time link flow
-- [ ] Auth (Supabase magic link)
+- [ ] Admin: link group generation
+- [ ] Respondent flow (one question per page, resume support)
+- [ ] Client cabinet (read-only dashboards)
+- [ ] PDF report generation (templated)
+- [ ] PDF report enrichment (LLM via Edge Function)
 
-## Data model (planned)
+## Get started
 
-| Table            | Purpose                                          |
-|------------------|--------------------------------------------------|
-| `questionnaires` | One row per questionnaire (title, owner)         |
-| `questions`      | Questions belonging to a questionnaire           |
-| `invitations`    | One-time tokens (the URL-shareable bit)          |
-| `responses`      | Submitted answers, linked to invitation token    |
+See **[docs/setup.md](docs/setup.md)** for full setup. Short version:
 
-See `docs/schema.md` for full schema and RLS policies.
+1. Create a Supabase project
+2. Run `supabase/migrations/0001_initial_schema.sql` in the SQL editor
+3. Promote your auth user to admin via SQL
+4. Copy `config.example.js` → `config.js` at the repo root and fill in URL + anon key
+5. `git push` — GitHub Pages auto-deploys
+
+## Specs
+
+Read **[docs/requirements.md](docs/requirements.md)** for the canonical spec. Update it before changing behaviour.
 
 ## License
 
