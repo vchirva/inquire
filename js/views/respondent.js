@@ -120,12 +120,22 @@ export async function renderRespondent(root, params) {
     }
   });
 
-  // Input changes (radio/checkbox/text/date/textarea/other)
+  // Input changes — split: 'change' handles radio/checkbox/date toggles (which
+  // need a repaint to reveal/hide "Other" text fields). 'input' handles text
+  // typing (no repaint, preserves cursor position).
   shell.addEventListener('change', (e) => {
-    handleInputChange(ctx, e, shell);
+    const kind = e.target.getAttribute?.('data-q-input');
+    if (!kind) return;
+    // Skip text inputs in 'change' — they're handled by 'input' below
+    if (kind === 'text' || kind === 'other-text') return;
+    handleInputChange(ctx, e, shell, false);
   });
   shell.addEventListener('input', (e) => {
-    // For text/textarea/other text fields, sync state without repainting
+    const kind = e.target.getAttribute?.('data-q-input');
+    if (!kind) return;
+    // Only handle text-typing here. Radios/checkboxes/dates fire 'input' too,
+    // but we ignore that — 'change' handles those and triggers a repaint.
+    if (kind !== 'text' && kind !== 'other-text') return;
     handleInputChange(ctx, e, shell, true);
   });
 
@@ -577,6 +587,12 @@ function handleInputChange(ctx, e, shell, isInputEvent = false) {
   if (kind === 'single' || kind === 'single-other') {
     const value = el.value === '__OTHER__' ? '' : el.value;
     ctx.answers.set(q.id, value);
+    // Defensive immediate visual update: clear selected class from all sibling
+    // options, set on the one whose input was just clicked. Prevents stale
+    // visual state if paint() doesn't run synchronously.
+    const labels = shell.querySelectorAll('.choice-group .choice-option');
+    labels.forEach(l => l.classList.remove('selected'));
+    el.closest('.choice-option')?.classList.add('selected');
     if (!isInputEvent) paint(ctx, shell);
     return;
   }
