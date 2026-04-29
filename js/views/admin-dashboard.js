@@ -1,30 +1,11 @@
 import { sb } from '../supabase.js';
-import { getProfile, getInitials, signOut } from '../auth.js';
 import { navigate } from '../router.js';
 import { escapeHtml, showToast } from '../utils.js';
+import { renderAdminTopbar, attachAdminTopbarHandlers } from './_topbar.js';
 
 export async function renderAdminDashboard(root) {
-  const profile = getProfile();
-  const initials = getInitials(profile?.full_name, profile?.id);
-
   root.innerHTML = `
-    <header class="topbar">
-      <div class="logo">
-        <div class="logo-mark">Σ</div>
-        <span class="logo-text">Sigma Software</span>
-        <span class="logo-sub">Inquire</span>
-      </div>
-      <nav class="topbar-nav">
-        <button class="topbar-link active" data-route="/admin">Overview</button>
-        <button class="topbar-link" data-route="/admin/clients">Clients</button>
-        <button class="topbar-link" data-route="/admin/questionnaires">Questionnaires</button>
-        <button class="topbar-link" data-route="/admin/settings">Settings</button>
-      </nav>
-      <div class="topbar-right">
-        <button class="topbar-link" id="signOutBtn">Sign out</button>
-        <div class="avatar" title="${escapeHtml(profile?.full_name ?? '')}">${initials}</div>
-      </div>
-    </header>
+    ${renderAdminTopbar('/admin')}
 
     <div class="container fade-in">
       <section class="hero">
@@ -33,12 +14,12 @@ export async function renderAdminDashboard(root) {
           <h1 class="page-title">Turn questions into <span class="red">decisions</span>.</h1>
           <p class="page-subtitle" id="heroSubtitle">Loading workspace…</p>
         </div>
-        <button class="btn" id="newQuestionnaireBtn">
+        <button class="btn" data-route="/admin/questionnaires">
           New questionnaire <span class="arrow">→</span>
         </button>
       </section>
 
-      <div class="stats" id="statsRow">
+      <div class="stats">
         <div class="stat">
           <div class="stat-label">Total responses</div>
           <div class="stat-value" id="statResponses">—</div>
@@ -76,36 +57,18 @@ export async function renderAdminDashboard(root) {
           </div>
         </div>
       </section>
-
-      <div class="footer-cta">
-        <h3 class="footer-cta-title">Ready to ship your first questionnaire? <span class="red">Let's go.</span></h3>
-        <button class="btn btn-red" id="newQuestionnaireBtn2">Create one now <span class="arrow">→</span></button>
-      </div>
     </div>
   `;
 
-  // Wire up nav and actions
-  root.querySelector('#signOutBtn').addEventListener('click', async () => {
-    await signOut();
-  });
-
+  attachAdminTopbarHandlers(root);
   root.querySelectorAll('[data-route]').forEach(btn => {
     btn.addEventListener('click', () => navigate(btn.dataset.route));
   });
 
-  root.querySelector('#newQuestionnaireBtn').addEventListener('click', () => {
-    showToast('Questionnaire builder coming next slice', 'info');
-  });
-  root.querySelector('#newQuestionnaireBtn2').addEventListener('click', () => {
-    showToast('Questionnaire builder coming next slice', 'info');
-  });
-
-  // Load real data
   await loadDashboardData(root);
 }
 
 async function loadDashboardData(root) {
-  // Run all queries in parallel
   const [responsesQ, linksQ, clientsQ, qsumQ] = await Promise.all([
     sb.from('response_sessions').select('id', { count: 'exact', head: true }).eq('status', 'submitted'),
     sb.from('link_groups').select('id', { count: 'exact', head: true }).eq('status', 'open'),
@@ -113,13 +76,11 @@ async function loadDashboardData(root) {
     sb.from('questionnaire_summary').select('*').order('created_at', { ascending: false }).limit(10)
   ]);
 
-  // Stats
   setStat(root, '#statResponses', responsesQ.count ?? 0);
   setStat(root, '#statActiveLinks', linksQ.count ?? 0);
   setStat(root, '#statClients', clientsQ.count ?? 0);
   setStat(root, '#statQuestionnaires', qsumQ.data?.length ?? 0);
 
-  // Hero subtitle
   const total = qsumQ.data?.length ?? 0;
   const live = qsumQ.data?.filter(q => q.status === 'live').length ?? 0;
   root.querySelector('#heroSubtitle').textContent =
@@ -127,13 +88,12 @@ async function loadDashboardData(root) {
       ? 'No questionnaires yet — create your first one to get started.'
       : `${total} questionnaire${total === 1 ? '' : 's'} · ${live} live · ${responsesQ.count ?? 0} response${responsesQ.count === 1 ? '' : 's'} collected`;
 
-  // Questionnaire list
   const list = root.querySelector('#qList');
   if (!qsumQ.data || qsumQ.data.length === 0) {
     list.innerHTML = `
       <div class="empty">
         <div class="empty-title">No questionnaires yet</div>
-        <div class="empty-text">Once you create your first questionnaire, it'll appear here. Coming in the next slice.</div>
+        <div class="empty-text">Create your first questionnaire to start collecting responses.</div>
       </div>
     `;
     return;

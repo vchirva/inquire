@@ -52,7 +52,7 @@ inquire/
 - [x] **Slice 1:** Auth shell — login, role-based routing, real Supabase wiring
 - [x] **Slice 1:** Admin dashboard reads real data
 - [x] **Slice 1:** Client cabinet placeholder + client registration view
-- [ ] Slice 2: Client management screen
+- [x] **Slice 2:** Client management — list, search, create, edit, registration invites
 - [ ] Slice 3: Questionnaire builder
 - [ ] Slice 4: Link group generation + per-questionnaire results
 - [ ] Slice 5: Respondent flow
@@ -70,10 +70,11 @@ See **[docs/setup.md](docs/setup.md)** for full setup.
 | `#/login` | anonymous | Email/password sign-in |
 | `#/register/:token` | anonymous | Client signup via admin invite |
 | `#/admin` | admin | Dashboard overview |
-| `#/admin/clients` | admin | (placeholder) |
-| `#/admin/questionnaires` | admin | (placeholder) |
-| `#/admin/settings` | admin | (placeholder) LLM config |
-| `#/cabinet` | client | (placeholder) |
+| `#/admin/clients` | admin | List all clients, search, create new |
+| `#/admin/clients/:id` | admin | Client info, edit, generate registration invites |
+| `#/admin/questionnaires` | admin | (placeholder — Slice 3) |
+| `#/admin/settings` | admin | (placeholder — LLM config) |
+| `#/cabinet` | client | (placeholder — Slice 6) |
 
 ## Specs
 

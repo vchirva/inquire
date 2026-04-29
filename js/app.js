@@ -5,16 +5,22 @@ import { initAuth } from './auth.js';
 import { defineRoute, startRouter } from './router.js';
 import { renderLogin } from './views/login.js';
 import { renderAdminDashboard } from './views/admin-dashboard.js';
+import { renderClientsList } from './views/clients-list.js';
+import { renderClientDetail } from './views/client-detail.js';
 import { renderClientCabinet } from './views/client-cabinet.js';
 import { renderRegister } from './views/register.js';
+import { renderAdminTopbar, attachAdminTopbarHandlers } from './views/_topbar.js';
 
-// Routes
+// ---- Public routes ----
+
 defineRoute({ pattern: '/login', render: renderLogin });
 
 defineRoute({
   pattern: /^\/register\/(?<token>[a-f0-9-]+)$/,
   render: renderRegister
 });
+
+// ---- Admin routes ----
 
 defineRoute({
   pattern: '/admin',
@@ -25,20 +31,14 @@ defineRoute({
 
 defineRoute({
   pattern: '/admin/clients',
-  render: (root) => {
-    root.innerHTML = `
-      <header class="topbar">
-        <div class="logo"><div class="logo-mark">Σ</div><span class="logo-text">Sigma Software</span><span class="logo-sub">Inquire</span></div>
-      </header>
-      <div class="container">
-        <div class="empty">
-          <div class="empty-title">Clients screen coming next</div>
-          <div class="empty-text">This is where you'll create clients and generate registration links.</div>
-          <button class="btn btn-outline" onclick="location.hash='#/admin'">Back to dashboard</button>
-        </div>
-      </div>
-    `;
-  },
+  render: renderClientsList,
+  requireAuth: true,
+  requireRole: 'admin'
+});
+
+defineRoute({
+  pattern: /^\/admin\/clients\/(?<id>[a-f0-9-]+)$/,
+  render: renderClientDetail,
   requireAuth: true,
   requireRole: 'admin'
 });
@@ -47,9 +47,7 @@ defineRoute({
   pattern: '/admin/questionnaires',
   render: (root) => {
     root.innerHTML = `
-      <header class="topbar">
-        <div class="logo"><div class="logo-mark">Σ</div><span class="logo-text">Sigma Software</span><span class="logo-sub">Inquire</span></div>
-      </header>
+      ${renderAdminTopbar('/admin/questionnaires')}
       <div class="container">
         <div class="empty">
           <div class="empty-title">Questionnaires screen coming next</div>
@@ -58,6 +56,7 @@ defineRoute({
         </div>
       </div>
     `;
+    attachAdminTopbarHandlers(root);
   },
   requireAuth: true,
   requireRole: 'admin'
@@ -67,9 +66,7 @@ defineRoute({
   pattern: '/admin/settings',
   render: (root) => {
     root.innerHTML = `
-      <header class="topbar">
-        <div class="logo"><div class="logo-mark">Σ</div><span class="logo-text">Sigma Software</span><span class="logo-sub">Inquire</span></div>
-      </header>
+      ${renderAdminTopbar('/admin/settings')}
       <div class="container">
         <div class="empty">
           <div class="empty-title">Settings screen coming later</div>
@@ -78,10 +75,13 @@ defineRoute({
         </div>
       </div>
     `;
+    attachAdminTopbarHandlers(root);
   },
   requireAuth: true,
   requireRole: 'admin'
 });
+
+// ---- Client routes ----
 
 defineRoute({
   pattern: '/cabinet',
@@ -90,7 +90,8 @@ defineRoute({
   requireRole: 'client'
 });
 
-// Boot
+// ---- Boot ----
+
 async function boot() {
   await initAuth();
   document.getElementById('appLoading')?.remove();
