@@ -1,5 +1,6 @@
 import { sb } from '../supabase.js';
 import { navigate } from '../router.js';
+import { getSession } from '../auth.js';
 import { escapeHtml, showToast } from '../utils.js';
 import { renderAdminTopbar, attachAdminTopbarHandlers } from './_topbar.js';
 
@@ -14,7 +15,7 @@ export async function renderAdminDashboard(root) {
           <h1 class="page-title">Turn questions into <span class="red">decisions</span>.</h1>
           <p class="page-subtitle" id="heroSubtitle">Loading workspace…</p>
         </div>
-        <button class="btn" data-route="/admin/questionnaires">
+        <button class="btn" id="newQuestionnaireBtn">
           New questionnaire <span class="arrow">→</span>
         </button>
       </section>
@@ -65,31 +66,73 @@ export async function renderAdminDashboard(root) {
     btn.addEventListener('click', () => navigate(btn.dataset.route));
   });
 
+  root.querySelector('#newQuestionnaireBtn').addEventListener('click', async () => {
+    const session = getSession();
+    const { data, error } = await sb
+      .from('questionnaires')
+      .insert({
+        title: 'Untitled questionnaire',
+        status: 'draft',
+        created_by: session.user.id
+      })
+      .select()
+      .single();
+    if (error) {
+      showToast('Failed to create: ' + error.message, 'error');
+      return;
+    }
+    navigate(`/admin/questionnaires/${data.id}`);
+  });
+
   await loadDashboardData(root);
 }
 
 async function loadDashboardData(root) {
-  const [responsesQ, linksQ, clientsQ, qsumQ] = await Promise.all([
+  // Fetch questionnaires + counts via direct queries (not the view) to avoid
+  // any RLS-on-view edge cases, and so each query independently surfaces errors.
+  const [responsesQ, linksQ, clientsQ, qsQ] = await Promise.all([
     sb.from('response_sessions').select('id', { count: 'exact', head: true }).eq('status', 'submitted'),
     sb.from('link_groups').select('id', { count: 'exact', head: true }).eq('status', 'open'),
     sb.from('clients').select('id', { count: 'exact', head: true }),
-    sb.from('questionnaire_summary').select('*').order('created_at', { ascending: false }).limit(10)
+    sb.from('questionnaires').select('id, title, status, created_at').order('created_at', { ascending: false }).limit(10)
   ]);
+
+  if (qsQ.error) {
+    console.error('Failed to load questionnaires:', qsQ.error);
+    showToast('Failed to load questionnaires: ' + qsQ.error.message, 'error');
+  }
+
+  const questionnaires = qsQ.data || [];
+
+  // Per-questionnaire counts (in parallel)
+  const counts = await Promise.all(questionnaires.map(async q => {
+    const [qcount, sub, prog] = await Promise.all([
+      sb.from('questions').select('id', { count: 'exact', head: true }).eq('questionnaire_id', q.id),
+      sb.from('response_sessions').select('id', { count: 'exact', head: true }).eq('questionnaire_id', q.id).eq('status', 'submitted'),
+      sb.from('response_sessions').select('id', { count: 'exact', head: true }).eq('questionnaire_id', q.id).eq('status', 'in_progress')
+    ]);
+    return {
+      ...q,
+      question_count: qcount.count ?? 0,
+      submitted_count: sub.count ?? 0,
+      in_progress_count: prog.count ?? 0
+    };
+  }));
 
   setStat(root, '#statResponses', responsesQ.count ?? 0);
   setStat(root, '#statActiveLinks', linksQ.count ?? 0);
   setStat(root, '#statClients', clientsQ.count ?? 0);
-  setStat(root, '#statQuestionnaires', qsumQ.data?.length ?? 0);
+  setStat(root, '#statQuestionnaires', counts.length);
 
-  const total = qsumQ.data?.length ?? 0;
-  const live = qsumQ.data?.filter(q => q.status === 'live').length ?? 0;
+  const total = counts.length;
+  const live = counts.filter(q => q.status === 'live').length;
   root.querySelector('#heroSubtitle').textContent =
     total === 0
       ? 'No questionnaires yet — create your first one to get started.'
       : `${total} questionnaire${total === 1 ? '' : 's'} · ${live} live · ${responsesQ.count ?? 0} response${responsesQ.count === 1 ? '' : 's'} collected`;
 
   const list = root.querySelector('#qList');
-  if (!qsumQ.data || qsumQ.data.length === 0) {
+  if (counts.length === 0) {
     list.innerHTML = `
       <div class="empty">
         <div class="empty-title">No questionnaires yet</div>
@@ -99,7 +142,7 @@ async function loadDashboardData(root) {
     return;
   }
 
-  list.innerHTML = qsumQ.data.map((q, i) => {
+  list.innerHTML = counts.map((q, i) => {
     const total = (q.submitted_count ?? 0) + (q.in_progress_count ?? 0);
     const pct = total > 0 ? Math.round(((q.submitted_count ?? 0) / total) * 100) : 0;
     return `
@@ -119,6 +162,11 @@ async function loadDashboardData(root) {
       </button>
     `;
   }).join('');
+
+  // Wire click → open builder
+  list.querySelectorAll('.q-item').forEach(btn => {
+    btn.addEventListener('click', () => navigate(`/admin/questionnaires/${btn.dataset.id}`));
+  });
 }
 
 function setStat(root, selector, value) {

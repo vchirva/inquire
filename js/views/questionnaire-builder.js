@@ -127,8 +127,9 @@ function paint() {
       </div>
 
       <div class="builder-footer">
-        <div style="font-size:12px; color: var(--ink-mute);">
+        <div style="display:flex; gap:16px; align-items:center; font-size:12px; color: var(--ink-mute);">
           ${state.questions.length} question${state.questions.length === 1 ? '' : 's'}
+          ${locked ? '' : `<button class="conditional-toggle remove" id="deleteQuestionnaireBtn" style="margin-left:8px;">Delete questionnaire</button>`}
         </div>
         <div style="display:flex; gap:12px;">
           <button class="btn btn-outline" id="previewBtn" disabled title="Coming in a later slice">Preview</button>
@@ -151,6 +152,7 @@ function paint() {
       scheduleSave();
     });
     container.querySelector('#addQuestionBtn').addEventListener('click', addQuestion);
+    container.querySelector('#deleteQuestionnaireBtn')?.addEventListener('click', deleteQuestionnaire);
   }
 
   paintClientChips();
@@ -479,6 +481,14 @@ async function addQuestion() {
   if (error) { showToast('Failed to add: ' + error.message, 'error'); return; }
   state.questions.push(data);
   paintQuestions();
+}
+
+async function deleteQuestionnaire() {
+  if (!confirm(`Delete "${state.questionnaire.title}"? This will also delete all questions, invitations, and any responses. Cannot be undone.`)) return;
+  const { error } = await sb.from('questionnaires').delete().eq('id', state.questionnaire.id);
+  if (error) { showToast('Delete failed: ' + error.message, 'error'); return; }
+  showToast('Questionnaire deleted', 'success');
+  navigate('/admin/questionnaires');
 }
 
 async function deleteQuestion(q) {
