@@ -56,7 +56,7 @@ inquire/
 - [x] **Slice 3a:** Questionnaire list (filter/search/clone) + builder (autosave, all 6 types, conditional logic, assignments)
 - [x] **Slice 3b:** Publish — validates + locks + auto-creates link groups
 - [x] **Slice 4:** Per-questionnaire results dashboard (link group management + per-question breakdown charts)
-- [ ] Slice 5: Respondent flow
+- [x] **Slice 5:** Respondent flow — one question per page, conditional logic, autosave, resume via cookie, review screen, submit
 - [ ] Slice 6: Client cabinet dashboards
 - [ ] Slice 7: PDF reports (templated + LLM)
 
@@ -76,6 +76,7 @@ See **[docs/setup.md](docs/setup.md)** for full setup.
 | `#/admin/questionnaires` | admin | List, filter, search, clone, delete |
 | `#/admin/questionnaires/:id` | admin | Builder — autosave-driven editing |
 | `#/admin/questionnaires/:id/results` | admin | Results dashboard — link groups, stats, per-question breakdown |
+| `#/q/:token` | anonymous | Respondent flow — one question per page, autosave, review, submit |
 | `#/admin/settings` | admin | (placeholder — LLM config) |
 | `#/cabinet` | client | (placeholder — Slice 6) |
 

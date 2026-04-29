@@ -9,6 +9,7 @@ import { renderClientsList } from './views/clients-list.js';
 import { renderClientDetail } from './views/client-detail.js';
 import { renderClientCabinet } from './views/client-cabinet.js';
 import { renderRegister } from './views/register.js';
+import { renderRespondent } from './views/respondent.js';
 import { renderQuestionnairesList } from './views/questionnaires-list.js';
 import { renderQuestionnaireBuilder } from './views/questionnaire-builder.js';
 import { renderQuestionnaireResults } from './views/questionnaire-results.js';
@@ -21,6 +22,13 @@ defineRoute({ pattern: '/login', render: renderLogin });
 defineRoute({
   pattern: /^\/register\/(?<token>[A-Fa-f0-9-]+)\/?$/,
   render: renderRegister
+});
+
+// Public respondent route — no auth required. Anyone with a valid group_token
+// in the URL can answer the questionnaire.
+defineRoute({
+  pattern: /^\/q\/(?<token>[A-Fa-f0-9-]+)\/?$/,
+  render: renderRespondent
 });
 
 // ---- Admin routes ----
@@ -97,7 +105,7 @@ defineRoute({
 
 // ---- Boot ----
 
-const BOOT_TIMEOUT_MS = 8000;
+const BOOT_TIMEOUT_MS = 20000;  // Supabase free-tier cold start can take 10s+
 
 function withTimeout(promise, ms, label) {
   return Promise.race([

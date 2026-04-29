@@ -33,6 +33,16 @@ async function handleRoute() {
   const path = location.hash.slice(1) || '/';
   const root = document.getElementById('app');
 
+  // Public respondent route — no auth required, no redirect either way.
+  if (path.startsWith('/q/')) {
+    const match = findRoute(path);
+    if (match) {
+      root.innerHTML = '';
+      await match.route.render(root, match.params);
+      return;
+    }
+  }
+
   // Authenticated users should never linger on public pages — bounce them home.
   if (isAuthenticated() && (path === '/' || path === '/login' || path.startsWith('/register/'))) {
     return navigate(isAdmin() ? '/admin' : '/cabinet');

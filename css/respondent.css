@@ -1,0 +1,373 @@
+/* ===========================================================================
+   RESPONDENT FLOW
+   =========================================================================== */
+
+.respondent-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.respondent-topbar {
+  background: var(--bg-dark);
+  color: white;
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.respondent-topbar .logo { font-size: 16px; }
+.respondent-topbar .logo-mark { width: 28px; height: 28px; font-size: 16px; }
+
+.respondent-progress-wrap {
+  background: var(--bg-alt);
+  border-bottom: 1px solid var(--line);
+  padding: 16px 32px;
+}
+
+.respondent-progress-info {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  color: var(--ink-mute);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.respondent-progress-bar {
+  height: 4px;
+  background: var(--line);
+  max-width: 720px;
+  margin: 0 auto;
+  position: relative;
+}
+.respondent-progress-fill {
+  height: 100%;
+  background: var(--red);
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.respondent-main {
+  flex: 1;
+  padding: 64px 32px;
+  max-width: 720px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.respondent-question-eyebrow {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--red);
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.respondent-question-text {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+
+.respondent-required-marker {
+  color: var(--red);
+  font-weight: 700;
+}
+
+.respondent-question-help {
+  color: var(--ink-mute);
+  font-size: 14px;
+  margin-bottom: 32px;
+}
+
+/* Type-specific input areas */
+
+.respondent-input { margin-bottom: 32px; }
+
+/* Choice (radio / checkbox) */
+.choice-group { display: flex; flex-direction: column; gap: 8px; }
+
+.choice-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 15px;
+}
+.choice-option:hover { border-color: var(--ink); background: var(--bg-alt); }
+.choice-option.selected { border-color: var(--red); background: rgba(228, 0, 43, 0.04); }
+.choice-option input { display: none; }
+
+.choice-marker {
+  width: 20px; height: 20px;
+  border: 2px solid var(--line);
+  flex-shrink: 0;
+  position: relative;
+  transition: all 0.15s;
+}
+.choice-marker.radio { border-radius: 50%; }
+.choice-option:hover .choice-marker { border-color: var(--ink); }
+.choice-option.selected .choice-marker {
+  border-color: var(--red);
+  background: var(--red);
+}
+.choice-option.selected .choice-marker.radio::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  background: white;
+  border-radius: 50%;
+}
+.choice-option.selected .choice-marker:not(.radio)::after {
+  content: '✓';
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.choice-other-input {
+  margin-top: 4px;
+  margin-left: 54px;
+  width: calc(100% - 54px);
+  border: 1px solid var(--line);
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 14px;
+}
+.choice-other-input:focus { outline: none; border-color: var(--ink); }
+
+/* Text */
+.respondent-textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  padding: 16px 18px;
+  font-family: inherit;
+  font-size: 15px;
+  background: var(--bg);
+  resize: vertical;
+  min-height: 120px;
+}
+.respondent-textarea:focus { outline: none; border-color: var(--ink); }
+
+/* Date */
+.respondent-date {
+  border: 1px solid var(--line);
+  padding: 14px 16px;
+  font-family: inherit;
+  font-size: 15px;
+  background: var(--bg);
+  width: 100%;
+  max-width: 280px;
+}
+.respondent-date:focus { outline: none; border-color: var(--ink); }
+
+/* Rating */
+.rating-scale {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.rating-pill {
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.rating-pill:hover { border-color: var(--ink); }
+.rating-pill.selected {
+  background: var(--ink);
+  color: white;
+  border-color: var(--ink);
+}
+
+.rating-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--ink-mute);
+  font-weight: 600;
+}
+
+/* Ranking */
+.ranking-list { display: flex; flex-direction: column; gap: 8px; }
+
+.ranking-item {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.ranking-pos {
+  width: 32px; height: 32px;
+  background: var(--ink);
+  color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ranking-text { font-size: 15px; font-weight: 500; }
+
+.ranking-controls { display: flex; gap: 4px; }
+
+.ranking-btn {
+  width: 32px; height: 32px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.ranking-btn:hover:not(:disabled) { background: var(--ink); color: white; border-color: var(--ink); }
+.ranking-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* Footer (Back / Next / Submit) */
+.respondent-footer {
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+  padding: 24px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  position: sticky;
+  bottom: 0;
+}
+
+.respondent-footer-inner {
+  max-width: 720px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Review screen */
+.review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+
+.review-item {
+  padding: 24px 0;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  gap: 16px;
+  align-items: start;
+}
+
+.review-num {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-mute);
+  padding-top: 4px;
+}
+
+.review-q-text {
+  font-size: 14px;
+  color: var(--ink-mute);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.review-answer {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.review-answer .empty {
+  color: var(--ink-mute);
+  font-style: italic;
+  font-weight: 400;
+  padding: 0;
+  font-size: 14px;
+}
+
+.review-edit {
+  background: none;
+  border: 1px solid var(--line);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 6px 12px;
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-family: inherit;
+}
+.review-edit:hover { border-color: var(--ink); color: var(--ink); }
+
+/* Thank-you and error states */
+.respondent-message {
+  max-width: 560px;
+  margin: 96px auto;
+  padding: 48px;
+  text-align: center;
+  border: 1px solid var(--line);
+}
+
+.respondent-message h1 {
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 16px;
+}
+
+.respondent-message h1 .red { color: var(--red); }
+
+.respondent-message p {
+  color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 700px) {
+  .respondent-main { padding: 32px 20px; }
+  .respondent-question-text { font-size: 24px; }
+  .respondent-progress-wrap, .respondent-footer { padding: 14px 20px; }
+  .rating-pill { width: 44px; height: 44px; font-size: 15px; }
+  .review-item { grid-template-columns: 30px 1fr; }
+  .review-item .review-edit { grid-column: 1 / -1; justify-self: end; }
+}
