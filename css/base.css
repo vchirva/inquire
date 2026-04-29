@@ -69,18 +69,6 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
   z-index: 100;
 }
 
-.app-loading .logo-mark {
-  width: 48px;
-  height: 48px;
-  background: var(--red);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 800;
-  font-size: 24px;
-}
-
 .app-loading-text {
   font-size: 12px;
   color: var(--ink-mute);

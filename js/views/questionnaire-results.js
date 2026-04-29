@@ -117,9 +117,9 @@ async function loadData(ctx) {
   const [qRes, qsRes, lgRes, ssRes, cRes] = await Promise.all([
     sb.from('questionnaires').select('*').eq('id', id).single(),
     sb.from('questions').select('*').eq('questionnaire_id', id).order('order_index'),
-    sb.from('link_groups').select('*, clients(name)').eq('questionnaire_id', id).order('created_at'),
+    sb.from('link_groups').select('*, clients(name, contact_email)').eq('questionnaire_id', id).order('created_at'),
     sb.from('response_sessions').select('*').eq('questionnaire_id', id),
-    sb.from('clients').select('id, name')
+    sb.from('clients').select('id, name, contact_email')
   ]);
 
   if (qRes.error) throw qRes.error;
@@ -132,7 +132,7 @@ async function loadData(ctx) {
   ctx.questions = qsRes.data || [];
   ctx.linkGroups = lgRes.data || [];
   ctx.sessions = ssRes.data || [];
-  ctx.clientsById = Object.fromEntries((cRes.data || []).map(c => [c.id, c.name]));
+  ctx.clientsById = Object.fromEntries((cRes.data || []).map(c => [c.id, c]));
 
   // Responses for submitted sessions only
   const submittedIds = ctx.sessions.filter(s => s.status === 'submitted').map(s => s.id);
@@ -228,20 +228,34 @@ function renderLinkGroups(ctx) {
   }
 
   return ctx.linkGroups.map(g => {
-    const clientName = g.clients?.name ?? ctx.clientsById[g.client_id] ?? 'Unknown client';
+    const clientLookup = ctx.clientsById[g.client_id] || {};
+    const clientName = g.clients?.name ?? clientLookup.name ?? 'Unknown client';
+    const clientEmail = g.clients?.contact_email ?? clientLookup.contact_email ?? null;
     const sessions = ctx.sessions.filter(s => s.link_group_id === g.id);
     const subCount = sessions.filter(s => s.status === 'submitted').length;
     const url = buildGroupUrl(g.group_token);
     const isOpen = g.status === 'open';
 
+    // Pre-built mailto for this share link
+    const mailtoSubject = encodeURIComponent(`${ctx.questionnaire.title} — your team's questionnaire link`);
+    const mailtoBody = encodeURIComponent(
+      `Hi,\n\nWe'd like to invite your team to fill out the following questionnaire:\n\n${url}\n\nThe link is anonymous; everyone who opens it gets their own session. You can share it with your team via email or any other channel.\n\nThanks!`
+    );
+    const mailtoHref = clientEmail
+      ? `mailto:${encodeURIComponent(clientEmail)}?subject=${mailtoSubject}&body=${mailtoBody}`
+      : null;
+
     return `
       <div class="invite-output" style="margin-bottom:16px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-          <div>
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; gap:16px;">
+          <div style="flex:1; min-width: 0;">
             <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.1em; font-weight:700; color: var(--ink-mute);">For client</div>
-            <div style="font-size:18px; font-weight:700; margin-top:2px;">${escapeHtml(clientName)}</div>
+            <div style="font-size:18px; font-weight:700; margin-top:2px;">
+              <a href="#/admin/clients/${g.client_id}" style="color: inherit; text-decoration: none; border-bottom: 1px solid var(--line);">${escapeHtml(clientName)}</a>
+            </div>
+            ${clientEmail ? `<div style="font-size:13px; color: var(--ink-mute); margin-top:2px;">${escapeHtml(clientEmail)}</div>` : '<div style="font-size:13px; color: var(--ink-mute); margin-top:2px;">No contact email on file</div>'}
           </div>
-          <span class="invite-status-badge" style="background: ${isOpen ? 'var(--green)' : 'var(--ink)'}; color: white; border: none;">${isOpen ? 'Open' : 'Closed'}</span>
+          <span class="invite-status-badge" style="background: ${isOpen ? 'var(--green)' : 'var(--ink)'}; color: white; border: none; flex-shrink:0;">${isOpen ? 'Open' : 'Closed'}</span>
         </div>
         <div class="invite-url">${escapeHtml(url)}</div>
         <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap: wrap;">
@@ -249,8 +263,9 @@ function renderLinkGroups(ctx) {
             ${sessions.length} session${sessions.length === 1 ? '' : 's'}
             · ${subCount} submitted
           </div>
-          <div style="display:flex; gap:8px;">
+          <div style="display:flex; gap:8px; flex-wrap: wrap;">
             <button type="button" class="btn btn-outline btn-sm" data-copy="${escapeHtml(url)}">Copy link</button>
+            ${mailtoHref ? `<a href="${mailtoHref}" class="btn btn-outline btn-sm" style="text-decoration:none;">Email link</a>` : ''}
             <button type="button" class="btn btn-outline btn-sm" data-toggle="${g.id}" data-current="${g.status}">${isOpen ? 'Close link' : 'Reopen link'}</button>
           </div>
         </div>

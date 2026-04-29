@@ -21,7 +21,7 @@ export async function renderClientCabinet(root) {
   const ctx = { profile };
 
   root.innerHTML = `
-    ${renderClientTopbar('Loading…')}
+    ${renderClientTopbar()}
     <div class="container fade-in" id="cabinetContainer">
       <div style="padding: 64px 0; text-align: center; color: var(--ink-mute);">
         <span class="spinner spinner-dark"></span> Loading workspace…
@@ -86,9 +86,6 @@ async function loadAndPaint(ctx, root, container) {
   if (qsRes.error) throw qsRes.error;
 
   const clientName = clientRes.data?.name ?? 'Your organization';
-  // Update the topbar with the real client name
-  const topbarRight = root.querySelector('.topbar > div:nth-child(2)');
-  if (topbarRight) topbarRight.textContent = clientName;
 
   const questionnaires = (qsRes.data || [])
     .map(r => r.questionnaires)
@@ -118,7 +115,31 @@ async function loadAndPaint(ctx, root, container) {
 
 function paint(ctx, container, clientName, questionnaires) {
   const totalSubmitted = questionnaires.reduce((s, q) => s + (q.submitted_count ?? 0), 0);
+  const totalInProgress = questionnaires.reduce((s, q) => s + (q.in_progress_count ?? 0), 0);
+  const active = questionnaires.filter(q => q.status === 'live' || q.status === 'draft');
+  const past = questionnaires.filter(q => q.status === 'closed' || q.status === 'archived');
   const liveCount = questionnaires.filter(q => q.status === 'live').length;
+
+  const renderItem = (q, i) => {
+    const total = (q.submitted_count ?? 0) + (q.in_progress_count ?? 0);
+    const pct = total > 0 ? Math.round(((q.submitted_count ?? 0) / total) * 100) : 0;
+    return `
+      <button class="q-item" data-id="${q.id}">
+        <div class="q-num">${String(i + 1).padStart(2, '0')}</div>
+        <div>
+          <div class="q-name">${escapeHtml(q.title)}</div>
+          <div class="q-meta">${q.question_count ?? 0} question${q.question_count === 1 ? '' : 's'} · ${formatDate(q.created_at)}</div>
+        </div>
+        <span class="badge ${q.status}">${q.status === 'live' ? '<span class="dot"></span>' : ''}${q.status}</span>
+        <div class="progress">
+          <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;"></div></div>
+          <span class="progress-text">${q.submitted_count ?? 0} submitted${q.status === 'live' ? ` · ${q.in_progress_count ?? 0} in progress` : ''}</span>
+        </div>
+        <div class="q-meta">${pct}%</div>
+        <div class="icon-btn">→</div>
+      </button>
+    `;
+  };
 
   container.innerHTML = `
     <section class="hero">
@@ -128,7 +149,7 @@ function paint(ctx, container, clientName, questionnaires) {
         <p class="page-subtitle">${
           questionnaires.length === 0
             ? 'Once your administrator assigns questionnaires to your organization, they\'ll appear here.'
-            : `${questionnaires.length} questionnaire${questionnaires.length === 1 ? '' : 's'} assigned · ${liveCount} live · ${totalSubmitted} response${totalSubmitted === 1 ? '' : 's'} from your team`
+            : `${active.length} active${past.length > 0 ? ` · ${past.length} past` : ''} · ${totalSubmitted} response${totalSubmitted === 1 ? '' : 's'} from your team`
         }</p>
       </div>
     </section>
@@ -145,55 +166,51 @@ function paint(ctx, container, clientName, questionnaires) {
         <div class="stat-delta muted">accepting responses now</div>
       </div>
       <div class="stat">
-        <div class="stat-label">Total questionnaires</div>
-        <div class="stat-value">${questionnaires.length}</div>
-        <div class="stat-delta muted">all states</div>
+        <div class="stat-label">In progress</div>
+        <div class="stat-value">${totalInProgress}</div>
+        <div class="stat-delta muted">team members answering</div>
       </div>
       <div class="stat">
-        <div class="stat-label">In progress</div>
-        <div class="stat-value">${questionnaires.reduce((s, q) => s + (q.in_progress_count ?? 0), 0)}</div>
-        <div class="stat-delta muted">team members answering</div>
+        <div class="stat-label">Past questionnaires</div>
+        <div class="stat-value">${past.length}</div>
+        <div class="stat-delta muted">no longer accepting responses</div>
       </div>
     </div>
 
     <section class="section">
       <div class="section-head">
         <div>
-          <div class="section-eyebrow">Workspace</div>
+          <div class="section-eyebrow">Active</div>
           <h2 class="section-title">Questionnaires</h2>
         </div>
       </div>
 
-      ${questionnaires.length === 0 ? `
+      ${active.length === 0 ? `
         <div class="empty">
-          <div class="empty-title">No questionnaires yet</div>
-          <div class="empty-text">When your administrator assigns one to your organization, you'll see it here with the latest results.</div>
+          <div class="empty-title">No active questionnaires</div>
+          <div class="empty-text">${past.length > 0 ? 'All your questionnaires are closed. Past ones are listed below.' : 'When your administrator assigns one to your organization, you\'ll see it here with the latest results.'}</div>
         </div>
       ` : `
         <div class="q-list">
-          ${questionnaires.map((q, i) => {
-            const total = (q.submitted_count ?? 0) + (q.in_progress_count ?? 0);
-            const pct = total > 0 ? Math.round(((q.submitted_count ?? 0) / total) * 100) : 0;
-            return `
-              <button class="q-item" data-id="${q.id}">
-                <div class="q-num">${String(i + 1).padStart(2, '0')}</div>
-                <div>
-                  <div class="q-name">${escapeHtml(q.title)}</div>
-                  <div class="q-meta">${q.question_count ?? 0} question${q.question_count === 1 ? '' : 's'} · ${formatDate(q.created_at)}</div>
-                </div>
-                <span class="badge ${q.status}">${q.status === 'live' ? '<span class="dot"></span>' : ''}${q.status}</span>
-                <div class="progress">
-                  <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;"></div></div>
-                  <span class="progress-text">${q.submitted_count ?? 0} submitted · ${q.in_progress_count ?? 0} in progress</span>
-                </div>
-                <div class="q-meta">${pct}%</div>
-                <div class="icon-btn">→</div>
-              </button>
-            `;
-          }).join('')}
+          ${active.map(renderItem).join('')}
         </div>
       `}
     </section>
+
+    ${past.length > 0 ? `
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <div class="section-eyebrow">History</div>
+            <h2 class="section-title">Past questionnaires</h2>
+          </div>
+          <div style="font-size: 13px; color: var(--ink-mute);">No longer accepting responses</div>
+        </div>
+        <div class="q-list">
+          ${past.map(renderItem).join('')}
+        </div>
+      </section>
+    ` : ''}
   `;
 }
 

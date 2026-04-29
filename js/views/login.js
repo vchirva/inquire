@@ -1,5 +1,7 @@
 import { signIn } from '../auth.js';
 import { showToast } from '../utils.js';
+import { brandLogo } from './_brand.js';
+import { resetPassword } from '../auth.js';
 
 export async function renderLogin(root) {
   root.innerHTML = `
@@ -7,9 +9,7 @@ export async function renderLogin(root) {
       <div class="login-left">
         <div class="login-left-top">
           <div class="logo">
-            <div class="logo-mark">Σ</div>
-            <span class="logo-text">Sigma Software</span>
-            <span class="logo-sub">Inquire</span>
+            ${brandLogo()}
           </div>
         </div>
         <div>
@@ -41,8 +41,9 @@ export async function renderLogin(root) {
             <span class="arrow">→</span>
           </button>
 
-          <div class="login-footer">
-            Need a client account? Use the registration link from your administrator.
+          <div class="login-footer" style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;">
+            <span>Need a client account? Use the registration link from your administrator.</span>
+            <button type="button" id="forgotPwdBtn" class="link-button" style="background:none;border:none;padding:0;font:inherit;color:var(--ink);text-decoration:underline;cursor:pointer;font-size:13px;">Forgot password?</button>
           </div>
         </form>
       </div>
@@ -80,6 +81,19 @@ export async function renderLogin(root) {
       errorEl.style.display = 'block';
       btn.disabled = false;
       btnText.textContent = 'Sign in';
+    }
+  });
+
+  // Forgot password — prompts for email, sends reset link via Supabase
+  root.querySelector('#forgotPwdBtn').addEventListener('click', async () => {
+    const emailField = root.querySelector('#email');
+    const email = (emailField?.value || prompt('Enter the email of the account you want to reset:') || '').trim();
+    if (!email) return;
+    try {
+      await resetPassword(email);
+      showToast('If that email exists, a reset link has been sent. Check your inbox.', 'success', 6000);
+    } catch (err) {
+      showToast(err?.message ?? 'Could not send reset email.', 'error', 5000);
     }
   });
 }

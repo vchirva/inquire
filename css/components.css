@@ -91,7 +91,20 @@
 .badge.live { background: var(--green); color: white; }
 .badge.draft { background: var(--bg-alt); color: var(--ink-soft); border: 1px solid var(--line); }
 .badge.closed { background: var(--ink); color: white; }
-.badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.badge .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+}
+.badge.live .dot {
+  animation: badge-pulse 2s ease-in-out infinite;
+}
+@keyframes badge-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.4); }
+}
 
 /* Avatar */
 .avatar {

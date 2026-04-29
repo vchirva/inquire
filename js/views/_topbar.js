@@ -3,6 +3,7 @@
 import { getProfile, getInitials, signOut } from '../auth.js';
 import { navigate } from '../router.js';
 import { escapeHtml } from '../utils.js';
+import { brandLogo } from './_brand.js';
 
 export function renderAdminTopbar(activePath = '') {
   const profile = getProfile();
@@ -23,9 +24,7 @@ export function renderAdminTopbar(activePath = '') {
   const html = `
     <header class="topbar">
       <button class="logo" data-route="/admin" style="border:none;background:none;cursor:pointer;">
-        <div class="logo-mark">Σ</div>
-        <span class="logo-text">Sigma Software</span>
-        <span class="logo-sub">Inquire</span>
+        ${brandLogo()}
       </button>
       <nav class="topbar-nav">
         ${links.map(l => `

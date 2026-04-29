@@ -300,3 +300,24 @@
 }
 .cabinet-message h2 { font-size: 28px; font-weight: 800; margin-bottom: 16px; }
 .cabinet-message p { color: var(--ink-soft); }
+
+/* Subtle admin-contact note shown on client dashboards */
+.cabinet-help-note {
+  margin-top: 32px;
+  padding: 24px 28px;
+  background: var(--bg-alt);
+  border-left: 3px solid var(--red);
+}
+.cabinet-help-note-eyebrow {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  color: var(--red);
+  margin-bottom: 6px;
+}
+.cabinet-help-note-text {
+  font-size: 14px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}

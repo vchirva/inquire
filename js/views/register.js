@@ -2,6 +2,7 @@ import { sb } from '../supabase.js';
 import { showToast } from '../utils.js';
 import { navigate } from '../router.js';
 import { refreshProfile, signUp, signIn } from '../auth.js';
+import { brandLogo } from './_brand.js';
 
 export async function renderRegister(root, params) {
   const token = params.token;
@@ -11,9 +12,7 @@ export async function renderRegister(root, params) {
       <div class="login-left">
         <div class="login-left-top">
           <div class="logo">
-            <div class="logo-mark">Σ</div>
-            <span class="logo-text">Sigma Software</span>
-            <span class="logo-sub">Inquire</span>
+            ${brandLogo()}
           </div>
         </div>
         <div>

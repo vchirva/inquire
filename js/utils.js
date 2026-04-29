@@ -1,6 +1,12 @@
 // Small UI utilities
 
-export function showToast(message, kind = 'info', durationMs = 3000) {
+// Default 4s gives users enough time to read short messages.
+// Success/error toasts default to 5s — they convey state changes that matter.
+// Pass an explicit durationMs to override.
+export function showToast(message, kind = 'info', durationMs = null) {
+  if (durationMs == null) {
+    durationMs = (kind === 'success' || kind === 'error') ? 5000 : 4000;
+  }
   const el = document.createElement('div');
   el.className = `toast ${kind}`;
   el.textContent = message;

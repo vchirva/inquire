@@ -4,6 +4,7 @@
 
 import { sb } from '../supabase.js';
 import { escapeHtml } from '../utils.js';
+import { brandLogo } from './_brand.js';
 
 const COOKIE_NAME = 'inquire_session';
 const COOKIE_DAYS = 30;
@@ -51,9 +52,7 @@ export async function renderRespondent(root, params) {
     <div class="respondent-shell" id="respondentShell">
       <header class="respondent-topbar">
         <div class="logo">
-          <div class="logo-mark">Σ</div>
-          <span class="logo-text">Sigma Software</span>
-          <span class="logo-sub">Inquire</span>
+          ${brandLogo()}
         </div>
         <div style="font-size: 12px; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;">
           Anonymous response
@@ -343,15 +342,13 @@ function paintQuestion(ctx, shell, visible) {
   const num = ctx.currentIndex + 1;
   const pct = Math.round((num / total) * 100);
   const required = q.required;
-  const answered = ctx.answers.has(q.id) && !isAnswerEmpty(q, ctx.answers.get(q.id));
-  const canProceed = !required || answered;
 
   shell.innerHTML = `
     <header class="respondent-topbar">
       <div class="logo">
-        <div class="logo-mark">Σ</div>
-        <span class="logo-text">${escapeHtml(ctx.questionnaire?.title ?? 'Inquire')}</span>
+        ${brandLogo()}
       </div>
+      <div class="respondent-questionnaire-title">${escapeHtml(ctx.questionnaire?.title ?? '')}</div>
       <div style="font-size: 12px; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;">
         Anonymous · auto-saved
       </div>
@@ -371,12 +368,13 @@ function paintQuestion(ctx, shell, visible) {
         ${escapeHtml(q.text || '(untitled)')}${required ? ' <span class="respondent-required-marker">*</span>' : ''}
       </h1>
       <div class="respondent-input">${renderInput(q, ctx.answers.get(q.id))}</div>
+      <div class="respondent-validation" id="respondentValidation" style="display:none;"></div>
     </main>
 
     <footer class="respondent-footer">
       <div class="respondent-footer-inner">
         <button class="btn btn-outline" data-back ${num === 1 ? 'disabled' : ''}>← Back</button>
-        <button class="btn" data-next ${canProceed ? '' : 'disabled'}>
+        <button class="btn" data-next>
           ${num === total ? 'Review answers' : 'Next'} <span class="arrow">→</span>
         </button>
       </div>
@@ -388,9 +386,9 @@ function paintReview(ctx, shell, visible) {
   shell.innerHTML = `
     <header class="respondent-topbar">
       <div class="logo">
-        <div class="logo-mark">Σ</div>
-        <span class="logo-text">${escapeHtml(ctx.questionnaire?.title ?? 'Inquire')}</span>
+        ${brandLogo()}
       </div>
+      <div class="respondent-questionnaire-title">${escapeHtml(ctx.questionnaire?.title ?? '')}</div>
       <div style="font-size: 12px; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;">
         Review your answers
       </div>
@@ -438,9 +436,7 @@ function paintThanks(ctx, shell) {
   shell.innerHTML = `
     <header class="respondent-topbar">
       <div class="logo">
-        <div class="logo-mark">Σ</div>
-        <span class="logo-text">Sigma Software</span>
-        <span class="logo-sub">Inquire</span>
+        ${brandLogo()}
       </div>
     </header>
     <main class="respondent-main">
@@ -584,6 +580,13 @@ function handleInputChange(ctx, e, shell, isInputEvent = false) {
   const q = currentQuestion(ctx);
   if (!q) return;
 
+  // Clear validation error as soon as the user interacts
+  const errEl = shell.querySelector('#respondentValidation');
+  if (errEl && errEl.style.display !== 'none') {
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+  }
+
   if (kind === 'single' || kind === 'single-other') {
     const value = el.value === '__OTHER__' ? '' : el.value;
     ctx.answers.set(q.id, value);
@@ -622,29 +625,16 @@ function handleInputChange(ctx, e, shell, isInputEvent = false) {
       ctx.answers.set(q.id, selected);
     }
     // No repaint — preserve focus/cursor
-    updateNextButtonState(ctx, shell);
     return;
   }
   if (kind === 'text') {
     ctx.answers.set(q.id, el.value);
-    updateNextButtonState(ctx, shell);
     return;
   }
   if (kind === 'date') {
     ctx.answers.set(q.id, el.value);
-    updateNextButtonState(ctx, shell);
     return;
   }
-}
-
-function updateNextButtonState(ctx, shell) {
-  const q = currentQuestion(ctx);
-  if (!q) return;
-  const required = q.required;
-  const answered = ctx.answers.has(q.id) && !isAnswerEmpty(q, ctx.answers.get(q.id));
-  const canProceed = !required || answered;
-  const next = shell.querySelector('[data-next]');
-  if (next) next.disabled = !canProceed;
 }
 
 function isAnswerEmpty(q, a) {
@@ -680,8 +670,23 @@ async function goNext(ctx, shell) {
   const visible = visibleQuestions(ctx);
   const q = visible[ctx.currentIndex];
   if (q) {
-    // Required check
-    if (q.required && isAnswerEmpty(q, ctx.answers.get(q.id))) return;
+    // Required check — show inline error if empty
+    if (q.required && isAnswerEmpty(q, ctx.answers.get(q.id))) {
+      const errEl = shell.querySelector('#respondentValidation');
+      if (errEl) {
+        errEl.textContent = 'Please answer this question to continue.';
+        errEl.style.display = 'block';
+        // Briefly shake the input area to draw attention
+        const inputArea = shell.querySelector('.respondent-input');
+        if (inputArea) {
+          inputArea.classList.remove('shake');
+          // Force reflow so the animation can re-trigger
+          void inputArea.offsetWidth;
+          inputArea.classList.add('shake');
+        }
+      }
+      return;
+    }
     // Save answer if present
     if (ctx.answers.has(q.id)) {
       const newIdx = ctx.currentIndex + 1;
@@ -693,13 +698,11 @@ async function goNext(ctx, shell) {
       });
       if (error) {
         console.error('save_answer failed', error);
-        // Continue anyway — user can still try to submit later
       }
     }
   }
 
   ctx.currentIndex += 1;
-  // Conditional logic may have changed visibility — discard hidden answers
   pruneHiddenAnswers(ctx);
   paint(ctx, shell);
 }

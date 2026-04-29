@@ -22,7 +22,7 @@ export async function renderClientQuestionnaireDashboard(root, params) {
   const ctx = { id: params.id, profile };
 
   root.innerHTML = `
-    ${renderClientTopbar('Loading…')}
+    ${renderClientTopbar()}
     <div class="container fade-in" id="cqdContainer">
       <div style="padding: 64px 0; text-align: center; color: var(--ink-mute);">
         <span class="spinner spinner-dark"></span> Loading dashboard…
@@ -92,10 +92,6 @@ async function loadAndPaint(ctx, root, container) {
   ctx.questionnaire = qRes.data;
   ctx.questions = qsRes.data || [];
   ctx.sessions = ssRes.data || [];
-
-  // Update topbar client name
-  const topbarRight = root.querySelector('.topbar > div:nth-child(2)');
-  if (topbarRight) topbarRight.textContent = ctx.clientName;
 
   // Fetch responses for submitted sessions
   const submittedIds = ctx.sessions.filter(s => s.status === 'submitted').map(s => s.id);
@@ -167,6 +163,18 @@ function paint(ctx, container) {
       </div>
       <div>${renderBreakdown(ctx)}</div>
     </section>
+
+    ${q.status === 'live' ? `
+      <div class="cabinet-help-note">
+        <div class="cabinet-help-note-eyebrow">Need more responses?</div>
+        <div class="cabinet-help-note-text">Your administrator at Sigma Software distributes the questionnaire link. Get in touch with them to share it with more colleagues.</div>
+      </div>
+    ` : `
+      <div class="cabinet-help-note">
+        <div class="cabinet-help-note-eyebrow">This questionnaire is closed</div>
+        <div class="cabinet-help-note-text">No new responses are being accepted. The results above are final.</div>
+      </div>
+    `}
   `;
 }
 

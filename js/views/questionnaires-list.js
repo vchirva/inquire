@@ -171,12 +171,13 @@ function renderRows(ctx, rows) {
 
   const tagById = Object.fromEntries(ctx.allTags.map(t => [t.id, t.name]));
   const clientById = Object.fromEntries(ctx.allClients.map(c => [c.id, c.name]));
+  const rowById = Object.fromEntries(rows.map(r => [r.id, r]));
 
   list.innerHTML = rows.map((r, i) => {
     const clientNames = r.client_ids.map(id => clientById[id]).filter(Boolean);
     const tagNames = r.tag_ids.map(id => tagById[id]).filter(Boolean);
     return `
-      <div class="q-row" data-id="${r.id}" role="button" tabindex="0">
+      <div class="q-row" data-id="${r.id}" data-status="${r.status}" role="button" tabindex="0">
         <div class="q-num">${String(i + 1).padStart(2, '0')}</div>
         <div>
           <div class="q-row-title">${escapeHtml(r.title)}</div>
@@ -196,19 +197,26 @@ function renderRows(ctx, rows) {
     `;
   }).join('');
 
+  // Helper: where should clicking this row take us?
+  function targetForRow(id) {
+    const r = rowById[id];
+    if (!r) return `/admin/questionnaires/${id}`;
+    return r.status === 'draft'
+      ? `/admin/questionnaires/${id}`
+      : `/admin/questionnaires/${id}/results`;
+  }
+
   list.querySelectorAll('.q-row').forEach(row => {
     row.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         if (e.target.closest('.row-menu-trigger') || e.target.closest('.row-menu')) return;
-        navigate(`/admin/questionnaires/${row.dataset.id}`);
+        navigate(targetForRow(row.dataset.id));
       }
     });
   });
 
   // Delegated click on the list — handles row click, menu trigger, and menu actions.
-  // We attach this once per render but it's idempotent; the only risk would be
-  // accumulation across renders, which we mitigate by always replacing list.innerHTML.
   list.onclick = async (e) => {
     // 1. Menu trigger ⋯
     const trigger = e.target.closest('.row-menu-trigger');
@@ -219,10 +227,17 @@ function renderRows(ctx, rows) {
       closeOpenRowMenus();
       if (existing) return;
       const id = trigger.getAttribute('data-menu');
+      const r = rowById[id];
+      const isDraft = r?.status === 'draft';
+      const isLive = r?.status === 'live';
       const menu = document.createElement('div');
       menu.className = 'row-menu';
-      menu.innerHTML = `
-        <button type="button" data-action="open" data-id="${id}">Open</button>
+      menu.innerHTML = isDraft ? `
+        <button type="button" data-action="edit" data-id="${id}">Edit</button>
+        <button type="button" data-action="clone" data-id="${id}">Clone</button>
+        <button type="button" data-action="delete" data-id="${id}" class="danger">Delete</button>
+      ` : `
+        <button type="button" data-action="results" data-id="${id}">${isLive ? 'Get share link & results' : 'View results'}</button>
         <button type="button" data-action="clone" data-id="${id}">Clone</button>
         <button type="button" data-action="delete" data-id="${id}" class="danger">Delete</button>
       `;
@@ -237,16 +252,17 @@ function renderRows(ctx, rows) {
       const id = action.getAttribute('data-id');
       const kind = action.getAttribute('data-action');
       closeOpenRowMenus();
-      if (kind === 'open') navigate(`/admin/questionnaires/${id}`);
+      if (kind === 'edit') navigate(`/admin/questionnaires/${id}`);
+      else if (kind === 'results') navigate(`/admin/questionnaires/${id}/results`);
       else if (kind === 'clone') await cloneOne(id);
       else if (kind === 'delete') await deleteOne(ctx, id);
       return;
     }
 
-    // 3. Plain row click (open builder)
+    // 3. Plain row click — go to builder for drafts, results for live/closed
     const row = e.target.closest('.q-row');
     if (row) {
-      navigate(`/admin/questionnaires/${row.dataset.id}`);
+      navigate(targetForRow(row.dataset.id));
     }
   };
 }

@@ -9,6 +9,7 @@ import { renderClientsList } from './views/clients-list.js';
 import { renderClientDetail } from './views/client-detail.js';
 import { renderClientCabinet } from './views/client-cabinet.js';
 import { renderClientQuestionnaireDashboard } from './views/client-questionnaire.js';
+import { renderAdminSettings } from './views/admin-settings.js';
 import { renderRegister } from './views/register.js';
 import { renderRespondent } from './views/respondent.js';
 import { renderQuestionnairesList } from './views/questionnaires-list.js';
@@ -78,19 +79,7 @@ defineRoute({
 
 defineRoute({
   pattern: '/admin/settings',
-  render: (root) => {
-    root.innerHTML = `
-      ${renderAdminTopbar('/admin/settings')}
-      <div class="container">
-        <div class="empty">
-          <div class="empty-title">Settings screen coming later</div>
-          <div class="empty-text">LLM provider config (Claude / OpenAI / Mistral / Grok / Ollama) goes here.</div>
-          <button class="btn btn-outline" onclick="location.hash='#/admin'">Back to dashboard</button>
-        </div>
-      </div>
-    `;
-    attachAdminTopbarHandlers(root);
-  },
+  render: renderAdminSettings,
   requireAuth: true,
   requireRole: 'admin'
 });
@@ -145,7 +134,7 @@ async function boot() {
   loading.id = 'appLoading';
   loading.className = 'app-loading';
   loading.innerHTML = `
-    <div class="logo-mark">Σ</div>
+    <img src="img/sigma-logo-dark.svg" alt="Sigma Software" class="sigma-logo sigma-logo--large" />
     <div class="app-loading-text" id="appLoadingText">Loading…</div>
     <div class="app-loading-hint" id="appLoadingHint" style="display:none;"></div>
   `;
@@ -179,7 +168,7 @@ boot().catch(err => {
   const isTimeout = err?.message?.includes('timed out');
   document.body.innerHTML = `
     <div style="padding: 64px 32px; max-width: 600px; margin: 0 auto; font-family: 'Manrope', sans-serif;">
-      <div style="width: 48px; height: 48px; background: #e4002b; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 24px; margin-bottom: 24px;">Σ</div>
+      <img src="img/sigma-logo-dark.svg" alt="Sigma Software" style="height:32px; margin-bottom:24px; display:block;" />
       <h1 style="font-weight: 800; letter-spacing: -0.02em; margin-bottom: 12px;">Couldn't connect</h1>
       <p style="color: #4a4a4a; margin-bottom: 12px; line-height: 1.5;">
         ${isTimeout

@@ -12,6 +12,8 @@
   z-index: 10;
 }
 
+/* Brand logo: Sigma Software wordmark (SVG image) followed by product name "Inquire".
+   Uses .sigma-logo for the image and .logo-sub for the product name. */
 .logo {
   display: flex;
   align-items: center;
@@ -19,26 +21,24 @@
   font-weight: 800;
   font-size: 18px;
   letter-spacing: -0.01em;
+  text-decoration: none;
+  color: inherit;
 }
 
-.logo-mark {
-  width: 32px; height: 32px;
-  background: var(--red);
-  display: flex; align-items: center; justify-content: center;
-  color: white;
-  font-weight: 800;
-  font-size: 18px;
+.sigma-logo {
+  height: 24px;
+  width: auto;
+  display: block;
 }
-
-.logo-text { color: white; }
+.sigma-logo--small { height: 20px; }
+.sigma-logo--large { height: 32px; }
 
 .logo-sub {
   color: var(--ink-mute);
   font-weight: 500;
   font-size: 12px;
-  padding-left: 8px;
+  padding-left: 12px;
   border-left: 1px solid #333;
-  margin-left: 4px;
 }
 
 .topbar-nav { display: flex; gap: 32px; }

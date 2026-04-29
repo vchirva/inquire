@@ -160,6 +160,26 @@ export async function signOut() {
   location.hash = '#/login';
 }
 
+// Send a password reset email. Supabase's GoTrue /recover endpoint sends a link
+// that lets the user set a new password.
+export async function resetPassword(email) {
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON_KEY
+    },
+    body: JSON.stringify({ email })
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    let msg = text;
+    try { msg = JSON.parse(text)?.msg || msg; } catch {}
+    throw new Error(msg || `Reset failed (${res.status})`);
+  }
+  return true;
+}
+
 export function getInitials(name, email) {
   if (name) {
     const parts = name.trim().split(/\s+/);

@@ -3,21 +3,17 @@
 import { getProfile, getInitials, signOut } from '../auth.js';
 import { navigate } from '../router.js';
 import { escapeHtml } from '../utils.js';
+import { brandLogo } from './_brand.js';
 
-export function renderClientTopbar(clientName) {
+export function renderClientTopbar() {
   const profile = getProfile();
   const initials = getInitials(profile?.full_name, profile?.id);
 
   return `
     <header class="topbar">
       <button class="logo" data-cabinet-home style="border:none;background:none;cursor:pointer;">
-        <div class="logo-mark">Σ</div>
-        <span class="logo-text">Sigma Software</span>
-        <span class="logo-sub">Inquire</span>
+        ${brandLogo()}
       </button>
-      <div style="font-size:13px; font-weight:600; color: rgba(255,255,255,0.7);">
-        ${escapeHtml(clientName ?? '')}
-      </div>
       <div class="topbar-right">
         <button class="topbar-link" id="cabinetSignOut">Sign out</button>
         <div class="avatar dark" title="${escapeHtml(profile?.full_name ?? '')}">${initials}</div>
