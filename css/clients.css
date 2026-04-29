@@ -34,13 +34,12 @@
   transition: all 0.2s;
   cursor: pointer;
   text-align: left;
-  background: none;
-  border-left: none; border-right: none; border-top: none;
   width: 100%;
   font-family: inherit;
+  outline: none;
 }
 
-.client-row:hover { padding-left: 12px; padding-right: 12px; background: var(--bg-alt); }
+.client-row:hover, .client-row:focus-visible { padding-left: 12px; padding-right: 12px; background: var(--bg-alt); }
 .client-row:hover .client-num { color: var(--red); }
 
 .client-num {

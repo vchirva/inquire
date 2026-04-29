@@ -89,18 +89,31 @@ defineRoute({
 
 // ---- Boot ----
 
+const BOOT_TIMEOUT_MS = 8000;
+
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms))
+  ]);
+}
+
 async function boot() {
-  await initAuth();
+  await withTimeout(initAuth(), BOOT_TIMEOUT_MS, 'initAuth');
   document.getElementById('appLoading')?.remove();
   startRouter();
 }
 
 boot().catch(err => {
   console.error('Boot failed:', err);
+  const loading = document.getElementById('appLoading');
+  if (loading) loading.remove();
   document.body.innerHTML = `
-    <div style="padding: 64px; max-width: 600px; margin: 0 auto; font-family: sans-serif;">
-      <h1 style="color: #e4002b;">Something went wrong</h1>
-      <p>${err.message}</p>
+    <div style="padding: 64px 32px; max-width: 600px; margin: 0 auto; font-family: 'Manrope', sans-serif;">
+      <div style="width: 48px; height: 48px; background: #e4002b; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 24px; margin-bottom: 24px;">Σ</div>
+      <h1 style="font-weight: 800; letter-spacing: -0.02em; margin-bottom: 12px;">Couldn't start the app</h1>
+      <p style="color: #4a4a4a; margin-bottom: 24px;">${err.message}</p>
+      <button onclick="location.reload()" style="padding: 14px 24px; background: #0a0a0a; color: white; border: none; font-family: inherit; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer;">Reload</button>
     </div>
   `;
 });

@@ -35,11 +35,20 @@ async function loadProfile(userId) {
 }
 
 export async function initAuth() {
-  // Restore existing session if present
-  const { data: { session } } = await sb.auth.getSession();
-  currentSession = session;
-  if (session?.user) {
-    currentProfile = await loadProfile(session.user.id);
+  // Restore existing session if present.
+  // We deliberately don't throw on errors here — anonymous users (e.g. someone
+  // opening a /register/<token> link in a fresh browser) just have no session.
+  try {
+    const { data, error } = await sb.auth.getSession();
+    if (error) console.warn('getSession error:', error);
+    currentSession = data?.session ?? null;
+    if (currentSession?.user) {
+      currentProfile = await loadProfile(currentSession.user.id);
+    }
+  } catch (e) {
+    console.warn('initAuth getSession failed (treating as anonymous):', e);
+    currentSession = null;
+    currentProfile = null;
   }
 
   // Subscribe to auth changes

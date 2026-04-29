@@ -93,7 +93,7 @@ function renderClientsList_(clients) {
   }
 
   list.innerHTML = clients.map((c, i) => `
-    <button class="client-row" data-id="${c.id}">
+    <div class="client-row" data-id="${c.id}" role="button" tabindex="0">
       <div class="client-num">${String(i + 1).padStart(2, '0')}</div>
       <div>
         <div class="client-name">${escapeHtml(c.name)}</div>
@@ -103,11 +103,15 @@ function renderClientsList_(clients) {
       <div class="client-meta">${formatDate(c.created_at)}</div>
       <div class="client-meta"></div>
       <div class="icon-btn">→</div>
-    </button>
+    </div>
   `).join('');
 
   list.querySelectorAll('.client-row').forEach(row => {
-    row.addEventListener('click', () => navigate(`/admin/clients/${row.dataset.id}`));
+    const go = () => navigate(`/admin/clients/${row.dataset.id}`);
+    row.addEventListener('click', go);
+    row.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
+    });
   });
 }
 

@@ -11,6 +11,7 @@ import { renderAdminTopbar, attachAdminTopbarHandlers } from './_topbar.js';
 // ─── In-memory model ────────────────────────────────────────────────────────
 let state = null;          // { questionnaire, questions, clients, tags, allClients, allTags, locked }
 let saveTimer = null;
+let qSaveTimer = null;
 let saveStatus = 'idle';   // 'idle' | 'saving' | 'saved' | 'error'
 
 // Question type metadata
@@ -28,7 +29,7 @@ const RATING_DEFAULT = { min: 1, max: 5, min_label: '', max_label: '' };
 
 // Default options shape per type
 function defaultOptions(type) {
-  if (OPTIONS_TYPES.has(type)) return ['Option 1', 'Option 2'];
+  if (OPTIONS_TYPES.has(type)) return ['', ''];
   if (type === 'rating') return { ...RATING_DEFAULT };
   return null;
 }
@@ -37,6 +38,11 @@ function defaultOptions(type) {
 
 export async function renderQuestionnaireBuilder(root, params) {
   const id = params.id;
+
+  // Reset module state and any pending timers from prior visits.
+  state = null;
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  if (qSaveTimer) { clearTimeout(qSaveTimer); qSaveTimer = null; }
 
   root.innerHTML = `
     ${renderAdminTopbar('/admin/questionnaires')}
@@ -50,7 +56,23 @@ export async function renderQuestionnaireBuilder(root, params) {
   `;
   attachAdminTopbarHandlers(root);
 
-  const ok = await loadAll(id);
+  let ok = false;
+  try {
+    ok = await loadAll(id);
+  } catch (err) {
+    console.error('Builder load failed:', err);
+    root.querySelector('#builderContainer').innerHTML = `
+      <div class="builder-shell">
+        <div class="empty">
+          <div class="empty-title">Couldn't load questionnaire</div>
+          <div class="empty-text">${escapeHtml(err?.message ?? 'Unknown error')}</div>
+          <button class="btn btn-outline" onclick="location.hash='#/admin/questionnaires'">Back to list</button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
   if (!ok) {
     root.querySelector('#builderContainer').innerHTML = `
       <div class="builder-shell">
@@ -77,7 +99,15 @@ async function loadAll(id) {
     sb.from('tags').select('id, name').order('name')
   ]);
 
-  if (q.error || !q.data) return false;
+  if (q.error) {
+    // PGRST116 == no rows; treat as not-found, anything else is a real error
+    if (q.error.code === 'PGRST116') return false;
+    throw q.error;
+  }
+  if (!q.data) return false;
+  if (qq.error) throw qq.error;
+  if (c.error) throw c.error;
+  if (t.error) throw t.error;
 
   state = {
     questionnaire: q.data,
@@ -283,7 +313,7 @@ function renderTypeEditor(q) {
         ${opts.map((o, i) => `
           <div class="option-row">
             <span class="option-marker ${q.type === 'single_choice' ? 'radio' : q.type === 'multi_choice' ? 'check' : 'rank'}">${q.type === 'ranking' ? (i + 1) : ''}</span>
-            <input class="option-input" data-opt-index="${i}" value="${escapeHtml(o)}" placeholder="Option text" ${state.locked ? 'readonly' : ''} />
+            <input class="option-input" data-opt-index="${i}" value="${escapeHtml(o)}" placeholder="Option ${i + 1}" ${state.locked ? 'readonly' : ''} />
             ${state.locked ? '' : `<button class="q-icon-btn danger" data-opt-remove="${i}" title="Remove option">×</button>`}
           </div>
         `).join('')}
@@ -413,13 +443,13 @@ function wireQuestionCard(q, idx) {
       btn.addEventListener('click', () => {
         const i = Number(btn.dataset.optRemove);
         q.options.splice(i, 1);
-        if (q.options.length === 0) q.options = ['Option 1'];
+        if (q.options.length === 0) q.options = [''];
         saveQuestion(q);
         paintQuestions();
       });
     });
     card.querySelector('[data-opt-add]')?.addEventListener('click', () => {
-      q.options.push(`Option ${q.options.length + 1}`);
+      q.options.push('');
       saveQuestion(q);
       paintQuestions();
     });
@@ -536,7 +566,6 @@ async function reindex() {
 }
 
 // Save individual question (debounced for text edits)
-let qSaveTimer = null;
 function scheduleSaveQuestion(q) {
   setSave('saving');
   clearTimeout(qSaveTimer);

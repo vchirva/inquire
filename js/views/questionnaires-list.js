@@ -4,12 +4,19 @@ import { getSession } from '../auth.js';
 import { escapeHtml, showToast } from '../utils.js';
 import { renderAdminTopbar, attachAdminTopbarHandlers } from './_topbar.js';
 
-let allRows = [];
-let allClients = [];
-let allTags = [];
-let filters = { search: '', clientId: '', tagId: '' };
+// Per-render context. Created fresh on each renderQuestionnairesList call.
+function makeCtx() {
+  return {
+    allRows: [],
+    allClients: [],
+    allTags: [],
+    filters: { search: '', clientId: '', tagId: '' }
+  };
+}
 
 export async function renderQuestionnairesList(root) {
+  const ctx = makeCtx();
+
   root.innerHTML = `
     ${renderAdminTopbar('/admin/questionnaires')}
 
@@ -45,18 +52,35 @@ export async function renderQuestionnairesList(root) {
 
   attachAdminTopbarHandlers(root);
 
-  root.querySelector('#newQuestionnaireBtn').addEventListener('click', createNewQuestionnaire);
-  root.querySelector('#qSearch').addEventListener('input', e => { filters.search = e.target.value; applyFilters(); });
-  root.querySelector('#qClientFilter').addEventListener('change', e => { filters.clientId = e.target.value; applyFilters(); });
-  root.querySelector('#qTagFilter').addEventListener('change', e => { filters.tagId = e.target.value; applyFilters(); });
+  root.querySelector('#newQuestionnaireBtn').addEventListener('click', () => createNewQuestionnaire());
+  root.querySelector('#qSearch').addEventListener('input', e => { ctx.filters.search = e.target.value; applyFilters(ctx); });
+  root.querySelector('#qClientFilter').addEventListener('change', e => { ctx.filters.clientId = e.target.value; applyFilters(ctx); });
+  root.querySelector('#qTagFilter').addEventListener('change', e => { ctx.filters.tagId = e.target.value; applyFilters(ctx); });
 
-  await loadAll(root);
+  // Single document-level listener for closing open row menus.
+  // Use AbortController so we cleanly remove it whenever the page changes.
+  const abort = new AbortController();
+  document.addEventListener('click', closeOpenRowMenus, { signal: abort.signal });
 
-  // Close any open row menus when clicking elsewhere
-  document.addEventListener('click', closeOpenRowMenus);
+  // Stop listening when the user navigates away (the route handler will swap #app's content)
+  window.addEventListener('hashchange', () => abort.abort(), { once: true });
+
+  try {
+    await loadAll(root, ctx);
+  } catch (err) {
+    console.error('loadAll crashed:', err);
+    showToast('Load failed: ' + (err?.message ?? 'unknown'), 'error');
+    root.querySelector('#qList').innerHTML = `
+      <div class="empty">
+        <div class="empty-title">Couldn't load questionnaires</div>
+        <div class="empty-text">${escapeHtml(err?.message ?? 'Unknown error')}</div>
+        <button class="btn btn-outline" onclick="location.reload()">Retry</button>
+      </div>
+    `;
+  }
 }
 
-async function loadAll(root) {
+async function loadAll(root, ctx) {
   const [qsRes, clientsRes, tagsRes, qcRes, qtRes] = await Promise.all([
     sb.from('questionnaires').select('id, title, description, status, created_at, parent_id').order('created_at', { ascending: false }),
     sb.from('clients').select('id, name').order('name'),
@@ -65,15 +89,13 @@ async function loadAll(root) {
     sb.from('questionnaire_tags').select('questionnaire_id, tag_id')
   ]);
 
-  if (qsRes.error) {
-    showToast('Failed to load: ' + qsRes.error.message, 'error');
-    return;
-  }
+  if (qsRes.error) throw qsRes.error;
+  if (clientsRes.error) throw clientsRes.error;
+  if (tagsRes.error) throw tagsRes.error;
 
-  allClients = clientsRes.data || [];
-  allTags = tagsRes.data || [];
+  ctx.allClients = clientsRes.data || [];
+  ctx.allTags = tagsRes.data || [];
 
-  // Index assignments
   const clientByQ = new Map();
   for (const r of qcRes.data || []) {
     if (!clientByQ.has(r.questionnaire_id)) clientByQ.set(r.questionnaire_id, []);
@@ -85,71 +107,76 @@ async function loadAll(root) {
     tagByQ.get(r.questionnaire_id).push(r.tag_id);
   }
 
-  // Decorate
-  allRows = (qsRes.data || []).map(q => ({
+  ctx.allRows = (qsRes.data || []).map(q => ({
     ...q,
     client_ids: clientByQ.get(q.id) || [],
     tag_ids: tagByQ.get(q.id) || []
   }));
 
-  // Populate filter selects
+  // Populate filter selects (only if we're still on the page)
   const clientSelect = root.querySelector('#qClientFilter');
-  for (const c of allClients) {
+  const tagSelect = root.querySelector('#qTagFilter');
+  if (!clientSelect || !tagSelect) return;
+
+  // Reset existing options (in case of re-load)
+  clientSelect.innerHTML = '<option value="">All clients</option>';
+  for (const c of ctx.allClients) {
     const opt = document.createElement('option');
     opt.value = c.id;
     opt.textContent = c.name;
     clientSelect.appendChild(opt);
   }
-  const tagSelect = root.querySelector('#qTagFilter');
-  for (const t of allTags) {
+  tagSelect.innerHTML = '<option value="">All tags</option>';
+  for (const t of ctx.allTags) {
     const opt = document.createElement('option');
     opt.value = t.id;
     opt.textContent = t.name;
     tagSelect.appendChild(opt);
   }
 
-  // Subtitle
-  root.querySelector('#qSubtitle').textContent =
-    allRows.length === 0
+  const subtitle = root.querySelector('#qSubtitle');
+  if (subtitle) {
+    subtitle.textContent = ctx.allRows.length === 0
       ? 'No questionnaires yet — create your first one.'
-      : `${allRows.length} questionnaire${allRows.length === 1 ? '' : 's'}`;
+      : `${ctx.allRows.length} questionnaire${ctx.allRows.length === 1 ? '' : 's'}`;
+  }
 
-  applyFilters();
+  applyFilters(ctx);
 }
 
-function applyFilters() {
-  let rows = allRows;
-  if (filters.search) {
-    const q = filters.search.toLowerCase();
+function applyFilters(ctx) {
+  let rows = ctx.allRows;
+  if (ctx.filters.search) {
+    const q = ctx.filters.search.toLowerCase();
     rows = rows.filter(r => r.title.toLowerCase().includes(q));
   }
-  if (filters.clientId) rows = rows.filter(r => r.client_ids.includes(filters.clientId));
-  if (filters.tagId) rows = rows.filter(r => r.tag_ids.includes(filters.tagId));
-  renderRows(rows);
+  if (ctx.filters.clientId) rows = rows.filter(r => r.client_ids.includes(ctx.filters.clientId));
+  if (ctx.filters.tagId) rows = rows.filter(r => r.tag_ids.includes(ctx.filters.tagId));
+  renderRows(ctx, rows);
 }
 
-function renderRows(rows) {
+function renderRows(ctx, rows) {
   const list = document.getElementById('qList');
   if (!list) return;
 
   if (rows.length === 0) {
     list.innerHTML = `
       <div class="empty">
-        <div class="empty-title">${allRows.length === 0 ? 'No questionnaires yet' : 'No matches'}</div>
-        <div class="empty-text">${allRows.length === 0 ? 'Create your first questionnaire to get started.' : 'Try clearing your filters.'}</div>
+        <div class="empty-title">${ctx.allRows.length === 0 ? 'No questionnaires yet' : 'No matches'}</div>
+        <div class="empty-text">${ctx.allRows.length === 0 ? 'Create your first questionnaire to get started.' : 'Try clearing your filters.'}</div>
       </div>
     `;
     return;
   }
 
-  const tagById = Object.fromEntries(allTags.map(t => [t.id, t.name]));
-  const clientById = Object.fromEntries(allClients.map(c => [c.id, c.name]));
+  const tagById = Object.fromEntries(ctx.allTags.map(t => [t.id, t.name]));
+  const clientById = Object.fromEntries(ctx.allClients.map(c => [c.id, c.name]));
 
   list.innerHTML = rows.map((r, i) => {
     const clientNames = r.client_ids.map(id => clientById[id]).filter(Boolean);
     const tagNames = r.tag_ids.map(id => tagById[id]).filter(Boolean);
     return `
-      <button class="q-row" data-id="${r.id}">
+      <div class="q-row" data-id="${r.id}" role="button" tabindex="0">
         <div class="q-num">${String(i + 1).padStart(2, '0')}</div>
         <div>
           <div class="q-row-title">${escapeHtml(r.title)}</div>
@@ -165,15 +192,18 @@ function renderRows(rows) {
         <div class="row-menu-wrap">
           <button class="row-menu-trigger" data-menu="${r.id}" title="Actions">⋯</button>
         </div>
-      </button>
+      </div>
     `;
   }).join('');
 
   list.querySelectorAll('.q-row').forEach(row => {
-    row.addEventListener('click', e => {
-      // Menu trigger handled separately
+    const open = e => {
       if (e.target.closest('.row-menu-trigger') || e.target.closest('.row-menu')) return;
       navigate(`/admin/questionnaires/${row.dataset.id}`);
+    };
+    row.addEventListener('click', open);
+    row.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(e); }
     });
   });
 
@@ -200,7 +230,7 @@ function renderRows(rows) {
           closeOpenRowMenus();
           if (mb.dataset.action === 'open') navigate(`/admin/questionnaires/${id}`);
           else if (mb.dataset.action === 'clone') await cloneOne(id);
-          else if (mb.dataset.action === 'delete') await deleteOne(id);
+          else if (mb.dataset.action === 'delete') await deleteOne(ctx, id);
         });
       });
     });
@@ -221,7 +251,7 @@ async function cloneOne(id) {
   navigate(`/admin/questionnaires/${data}`);
 }
 
-async function deleteOne(id) {
+async function deleteOne(ctx, id) {
   if (!confirm('Delete this questionnaire? This cannot be undone.')) return;
   const { error } = await sb.from('questionnaires').delete().eq('id', id);
   if (error) {
@@ -229,9 +259,8 @@ async function deleteOne(id) {
     return;
   }
   showToast('Deleted', 'success');
-  // Remove from local state
-  allRows = allRows.filter(r => r.id !== id);
-  applyFilters();
+  ctx.allRows = ctx.allRows.filter(r => r.id !== id);
+  applyFilters(ctx);
 }
 
 async function createNewQuestionnaire() {
