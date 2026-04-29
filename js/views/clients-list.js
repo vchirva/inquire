@@ -187,18 +187,27 @@ function openCreateClientModal(root) {
 
     try {
       const session = getSession();
-      const { data, error } = await sb
+      if (!session?.user?.id) throw new Error('Not signed in. Please reload the page.');
+
+      const insertPromise = sb
         .from('clients')
         .insert({ name, contact_email, notes, created_by: session.user.id })
         .select()
         .single();
+
+      const { data, error } = await Promise.race([
+        insertPromise,
+        new Promise((_, rej) => setTimeout(() => rej(new Error('Request timed out after 20s')), 20000))
+      ]);
+
       if (error) throw error;
+      if (!data?.id) throw new Error('Insert succeeded but no id returned');
 
       showToast('Client created', 'success');
       close();
       navigate(`/admin/clients/${data.id}`);
     } catch (err) {
-      console.error(err);
+      console.error('Create client failed:', err);
       errorEl.textContent = err?.message ?? 'Failed to create client.';
       errorEl.style.display = 'block';
       submitBtn.disabled = false;

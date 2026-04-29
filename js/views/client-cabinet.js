@@ -3,7 +3,7 @@
 
 import { sb } from '../supabase.js';
 import { navigate } from '../router.js';
-import { getProfile } from '../auth.js';
+import { getProfile, refreshProfile } from '../auth.js';
 import { escapeHtml, showToast } from '../utils.js';
 import { renderClientTopbar, attachClientTopbarHandlers } from './_client-topbar.js';
 
@@ -57,7 +57,13 @@ export async function renderClientCabinet(root) {
 }
 
 async function loadAndPaint(ctx, root, container) {
-  // Fetch the client + questionnaires assigned to them, in parallel
+  // If profile lacks client_id, try a fresh load — handles the case where
+  // registration finished but the in-memory profile is stale.
+  if (!ctx.profile?.client_id) {
+    const fresh = await refreshProfile();
+    if (fresh) ctx.profile = fresh;
+  }
+
   if (!ctx.profile?.client_id) {
     container.innerHTML = `
       <div class="empty">

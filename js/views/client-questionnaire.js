@@ -4,7 +4,7 @@
 
 import { sb } from '../supabase.js';
 import { navigate } from '../router.js';
-import { getProfile } from '../auth.js';
+import { getProfile, refreshProfile } from '../auth.js';
 import { escapeHtml } from '../utils.js';
 import { renderClientTopbar, attachClientTopbarHandlers } from './_client-topbar.js';
 
@@ -56,6 +56,12 @@ export async function renderClientQuestionnaireDashboard(root, params) {
 }
 
 async function loadAndPaint(ctx, root, container) {
+  // Refresh profile if client_id is missing (handles stale in-memory state)
+  if (!ctx.profile?.client_id) {
+    const fresh = await refreshProfile();
+    if (fresh) ctx.profile = fresh;
+  }
+
   if (!ctx.profile?.client_id) {
     container.innerHTML = `
       <div class="empty">

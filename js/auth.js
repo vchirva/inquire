@@ -34,6 +34,16 @@ async function loadProfile(userId) {
   return data;
 }
 
+// Force-reload profile from DB. Called after operations that update the profile
+// (e.g. register_client_user setting client_id) so that getProfile() returns
+// fresh data without waiting for an auth state change.
+export async function refreshProfile() {
+  if (!currentSession?.user) return null;
+  currentProfile = await loadProfile(currentSession.user.id);
+  notify();
+  return currentProfile;
+}
+
 export async function initAuth() {
   // Restore existing session if present.
   // We deliberately don't throw on errors here — anonymous users (e.g. someone

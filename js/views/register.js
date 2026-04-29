@@ -1,6 +1,7 @@
 import { sb } from '../supabase.js';
 import { showToast } from '../utils.js';
 import { navigate } from '../router.js';
+import { refreshProfile } from '../auth.js';
 
 export async function renderRegister(root, params) {
   const token = params.token;
@@ -100,6 +101,11 @@ export async function renderRegister(root, params) {
       // 2. Consume the invite token to bind to the client and set role
       const { error: rpcErr } = await sb.rpc('register_client_user', { p_token: token });
       if (rpcErr) throw rpcErr;
+
+      // 3. Force-reload profile so getProfile() returns the freshly set client_id.
+      // Without this, the cabinet renders with a stale profile (client_id=null)
+      // and shows the "No organization" empty state.
+      await refreshProfile();
 
       showToast('Welcome to Inquire!', 'success');
       // The auth state change handler will redirect to /cabinet
