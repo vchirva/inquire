@@ -157,18 +157,40 @@ function humanError(err) {
 async function load(ctx) {
   // Resume existing session if cookie is set, else create new
   const existing = getCookie(cookieKey(ctx.groupToken));
-  const { data, error } = await withTimeout(
-    sb.rpc('claim_session', {
+
+  // Call claim_session via raw fetch to bypass any quirks in the Supabase JS
+  // client's RPC handling (which has caused "Cannot coerce" errors when the
+  // function returns jsonb). PostgREST jsonb-returning functions need
+  // Accept: application/json (NOT vnd.pgrst.object+json).
+  const url = `${window.INQUIRE_CONFIG.supabaseUrl}/rest/v1/rpc/claim_session`;
+  const res = await withTimeout(fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'apikey': window.INQUIRE_CONFIG.supabaseAnonKey,
+      'Authorization': `Bearer ${window.INQUIRE_CONFIG.supabaseAnonKey}`
+    },
+    body: JSON.stringify({
       p_group_token: ctx.groupToken,
       p_existing_session_token: existing || null
-    }),
-    LOAD_TIMEOUT_MS,
-    'claim session'
-  );
-  if (error) throw error;
-  if (!data) throw new Error('claim returned no session');
+    })
+  }), LOAD_TIMEOUT_MS, 'claim session');
 
-  // claim_session now returns a jsonb object directly
+  if (!res.ok) {
+    const text = await res.text();
+    let msg = text;
+    try {
+      const j = JSON.parse(text);
+      msg = j.message || j.error || j.hint || text;
+    } catch {}
+    throw new Error(msg);
+  }
+
+  const data = await res.json();
+  if (!data) throw new Error('claim returned empty response');
+
+  // Function returns jsonb directly — should be an object, not array
   const session = Array.isArray(data) ? data[0] : data;
   if (!session?.session_token) throw new Error('claim returned empty session');
 
