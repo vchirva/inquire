@@ -166,9 +166,12 @@ async function load(ctx) {
     'claim session'
   );
   if (error) throw error;
-  if (!data || data.length === 0) throw new Error('claim returned no session');
+  if (!data) throw new Error('claim returned no session');
 
-  const session = data[0];
+  // claim_session now returns a jsonb object directly
+  const session = Array.isArray(data) ? data[0] : data;
+  if (!session?.session_token) throw new Error('claim returned empty session');
+
   ctx.sessionToken = session.session_token;
   ctx.currentIndex = session.current_question_index || 0;
   setCookie(cookieKey(ctx.groupToken), session.session_token);
