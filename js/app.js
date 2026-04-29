@@ -105,7 +105,7 @@ defineRoute({
 
 // ---- Boot ----
 
-const BOOT_TIMEOUT_MS = 20000;  // Supabase free-tier cold start can take 10s+
+const AUTH_INIT_TIMEOUT_MS = 20000;
 
 function withTimeout(promise, ms, label) {
   return Promise.race([
@@ -115,15 +115,45 @@ function withTimeout(promise, ms, label) {
 }
 
 async function boot() {
-  await withTimeout(initAuth(), BOOT_TIMEOUT_MS, 'initAuth');
+  // Public respondent route: skip auth entirely. Anonymous users hitting /q/<token>
+  // don't need a Supabase session, and forcing them through initAuth would block on
+  // free-tier cold-start.
+  const path = (location.hash || '').slice(1) || '/';
+  const isRespondentRoute = path.startsWith('/q/');
+
   document.getElementById('appLoading')?.remove();
-  startRouter();
+
+  if (isRespondentRoute) {
+    // Don't await initAuth — respondent flow doesn't need it.
+    // Kick it off in the background so cached calls warm up if user later navigates.
+    initAuth().catch(err => console.warn('Background initAuth failed:', err));
+    startRouter();
+    return;
+  }
+
+  // For all other routes, we need auth state before rendering (router uses it
+  // for redirects). Show loading screen while we wait.
+  const loading = document.createElement('div');
+  loading.id = 'appLoading';
+  loading.className = 'app-loading';
+  loading.innerHTML = `
+    <div class="logo-mark">Σ</div>
+    <div class="app-loading-text">Loading…</div>
+  `;
+  document.body.appendChild(loading);
+
+  try {
+    await withTimeout(initAuth(), AUTH_INIT_TIMEOUT_MS, 'initAuth');
+    loading.remove();
+    startRouter();
+  } catch (err) {
+    loading.remove();
+    throw err;
+  }
 }
 
 boot().catch(err => {
   console.error('Boot failed:', err);
-  const loading = document.getElementById('appLoading');
-  if (loading) loading.remove();
   document.body.innerHTML = `
     <div style="padding: 64px 32px; max-width: 600px; margin: 0 auto; font-family: 'Manrope', sans-serif;">
       <div style="width: 48px; height: 48px; background: #e4002b; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 24px; margin-bottom: 24px;">Σ</div>
