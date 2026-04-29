@@ -113,7 +113,11 @@ defineRoute({
 
 // ---- Boot ----
 
-const AUTH_INIT_TIMEOUT_MS = 20000;
+// Supabase free tier has a cold start of 15-30s when the project has been idle.
+// 45s gives generous headroom to avoid false timeouts after long pauses.
+const AUTH_INIT_TIMEOUT_MS = 45000;
+// After this many ms, swap the loading text to acknowledge the wait.
+const SLOW_BOOT_HINT_MS = 5000;
 
 function withTimeout(promise, ms, label) {
   return Promise.race([
@@ -123,38 +127,48 @@ function withTimeout(promise, ms, label) {
 }
 
 async function boot() {
-  // Public respondent route: skip auth entirely. Anonymous users hitting /q/<token>
-  // don't need a Supabase session, and forcing them through initAuth would block on
-  // free-tier cold-start.
   const path = (location.hash || '').slice(1) || '/';
   const isRespondentRoute = path.startsWith('/q/');
 
   document.getElementById('appLoading')?.remove();
 
   if (isRespondentRoute) {
-    // Don't await initAuth — respondent flow doesn't need it.
-    // Kick it off in the background so cached calls warm up if user later navigates.
+    // Public respondent flow doesn't need auth. Kick initAuth off in the background
+    // for warm-up if they later navigate to a private route.
     initAuth().catch(err => console.warn('Background initAuth failed:', err));
     startRouter();
     return;
   }
 
-  // For all other routes, we need auth state before rendering (router uses it
-  // for redirects). Show loading screen while we wait.
+  // For private routes we need auth state before rendering.
   const loading = document.createElement('div');
   loading.id = 'appLoading';
   loading.className = 'app-loading';
   loading.innerHTML = `
     <div class="logo-mark">Σ</div>
-    <div class="app-loading-text">Loading…</div>
+    <div class="app-loading-text" id="appLoadingText">Loading…</div>
+    <div class="app-loading-hint" id="appLoadingHint" style="display:none;"></div>
   `;
   document.body.appendChild(loading);
 
+  // After ~5s, acknowledge the cold start so the user knows we're not frozen.
+  const slowHintTimer = setTimeout(() => {
+    const hint = document.getElementById('appLoadingHint');
+    const text = document.getElementById('appLoadingText');
+    if (text) text.textContent = 'Waking up the server…';
+    if (hint) {
+      hint.style.display = 'block';
+      hint.textContent = 'This can take up to a minute after a period of inactivity.';
+    }
+  }, SLOW_BOOT_HINT_MS);
+
   try {
     await withTimeout(initAuth(), AUTH_INIT_TIMEOUT_MS, 'initAuth');
+    clearTimeout(slowHintTimer);
     loading.remove();
     startRouter();
   } catch (err) {
+    clearTimeout(slowHintTimer);
     loading.remove();
     throw err;
   }
@@ -162,11 +176,18 @@ async function boot() {
 
 boot().catch(err => {
   console.error('Boot failed:', err);
+  const isTimeout = err?.message?.includes('timed out');
   document.body.innerHTML = `
     <div style="padding: 64px 32px; max-width: 600px; margin: 0 auto; font-family: 'Manrope', sans-serif;">
       <div style="width: 48px; height: 48px; background: #e4002b; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 24px; margin-bottom: 24px;">Σ</div>
-      <h1 style="font-weight: 800; letter-spacing: -0.02em; margin-bottom: 12px;">Couldn't start the app</h1>
-      <p style="color: #4a4a4a; margin-bottom: 24px;">${err.message}</p>
+      <h1 style="font-weight: 800; letter-spacing: -0.02em; margin-bottom: 12px;">Couldn't connect</h1>
+      <p style="color: #4a4a4a; margin-bottom: 12px; line-height: 1.5;">
+        ${isTimeout
+          ? 'The server is taking too long to respond. This usually means it\'s waking up from a long idle period. Try reloading — it should be fast the second time.'
+          : (err.message ?? 'Unknown error')
+        }
+      </p>
+      <p style="color: #8a8a8a; font-size: 13px; margin-bottom: 24px;">If this keeps happening, the database may be paused. Contact your administrator.</p>
       <button onclick="location.reload()" style="padding: 14px 24px; background: #0a0a0a; color: white; border: none; font-family: inherit; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer;">Reload</button>
     </div>
   `;

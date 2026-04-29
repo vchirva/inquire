@@ -1,8 +1,14 @@
-// Auth helpers — session, profile loading, sign in/out.
+// Auth — raw fetch implementation that bypasses the Supabase JS auth subsystem.
+// Maintains the same public API as before so other modules don't need changes.
 
-import { sb } from './supabase.js';
+import {
+  sb, SUPABASE_URL, SUPABASE_ANON_KEY,
+  getStoredToken, setStoredToken,
+  authSignInWithPassword, authSignUp, authRefresh, authGetUser, authSignOut,
+  setClientAuth
+} from './supabase.js';
 
-let currentSession = null;
+let currentSession = null;   // { access_token, refresh_token, expires_at, user }
 let currentProfile = null;
 const listeners = new Set();
 
@@ -18,70 +24,140 @@ export function onAuthChange(fn) {
 }
 
 function notify() {
-  for (const fn of listeners) fn({ session: currentSession, profile: currentProfile });
+  for (const fn of listeners) {
+    try { fn({ session: currentSession, profile: currentProfile }); }
+    catch (e) { console.error('auth listener error:', e); }
+  }
 }
 
-async function loadProfile(userId) {
-  const { data, error } = await sb
-    .from('profiles')
-    .select('id, role, full_name, client_id, created_at')
-    .eq('id', userId)
-    .single();
-  if (error) {
-    console.error('Failed to load profile:', error);
+// ─── Profile loading ────────────────────────────────────────────────────────
+
+async function loadProfile(userId, accessToken) {
+  // Use raw fetch to avoid any quirks in the JS client. PostgREST returns an
+  // array; we take the first row.
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/profiles?select=id,role,full_name,client_id,created_at&id=eq.${userId}`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${accessToken}`,
+          Accept: 'application/json'
+        }
+      }
+    );
+    if (!res.ok) {
+      console.warn('loadProfile failed:', res.status, await res.text());
+      return null;
+    }
+    const rows = await res.json();
+    return Array.isArray(rows) ? rows[0] ?? null : null;
+  } catch (e) {
+    console.error('loadProfile threw:', e);
     return null;
   }
-  return data;
 }
 
-// Force-reload profile from DB. Called after operations that update the profile
-// (e.g. register_client_user setting client_id) so that getProfile() returns
-// fresh data without waiting for an auth state change.
 export async function refreshProfile() {
-  if (!currentSession?.user) return null;
-  currentProfile = await loadProfile(currentSession.user.id);
+  if (!currentSession?.user || !currentSession?.access_token) return null;
+  currentProfile = await loadProfile(currentSession.user.id, currentSession.access_token);
   notify();
   return currentProfile;
 }
 
+// ─── Token lifecycle ────────────────────────────────────────────────────────
+
+function isTokenExpired(token, skewSec = 30) {
+  if (!token?.expires_at) return true;
+  return token.expires_at * 1000 < Date.now() + skewSec * 1000;
+}
+
+async function applyToken(token) {
+  // token shape: { access_token, refresh_token, expires_in, expires_at, user }
+  // Some endpoints don't include expires_at; compute from expires_in + now.
+  if (token.expires_in && !token.expires_at) {
+    token.expires_at = Math.floor(Date.now() / 1000) + token.expires_in;
+  }
+  currentSession = token;
+  setStoredToken(token);
+  setClientAuth(token.access_token);
+  if (token.user?.id) {
+    currentProfile = await loadProfile(token.user.id, token.access_token);
+  }
+}
+
+function clearSession() {
+  currentSession = null;
+  currentProfile = null;
+  setStoredToken(null);
+  setClientAuth(null);
+}
+
+// ─── Boot init ──────────────────────────────────────────────────────────────
+
 export async function initAuth() {
-  // Restore existing session if present.
-  // We deliberately don't throw on errors here — anonymous users (e.g. someone
-  // opening a /register/<token> link in a fresh browser) just have no session.
-  try {
-    const { data, error } = await sb.auth.getSession();
-    if (error) console.warn('getSession error:', error);
-    currentSession = data?.session ?? null;
-    if (currentSession?.user) {
-      currentProfile = await loadProfile(currentSession.user.id);
-    }
-  } catch (e) {
-    console.warn('initAuth getSession failed (treating as anonymous):', e);
-    currentSession = null;
-    currentProfile = null;
+  const stored = getStoredToken();
+  if (!stored) {
+    notify();
+    return;
   }
 
-  // Subscribe to auth changes
-  sb.auth.onAuthStateChange(async (_event, session) => {
-    currentSession = session;
-    currentProfile = session?.user ? await loadProfile(session.user.id) : null;
+  // If access token still valid, restore session as-is.
+  if (!isTokenExpired(stored)) {
+    try {
+      await applyToken(stored);
+    } catch (e) {
+      console.warn('Could not apply stored token, clearing:', e);
+      clearSession();
+    }
     notify();
-  });
+    return;
+  }
 
+  // Access token expired but refresh token might still work.
+  if (stored.refresh_token) {
+    try {
+      const refreshed = await authRefresh(stored.refresh_token);
+      await applyToken(refreshed);
+    } catch (e) {
+      console.warn('Token refresh failed, clearing session:', e);
+      clearSession();
+    }
+  } else {
+    clearSession();
+  }
   notify();
 }
 
+// ─── Public actions ─────────────────────────────────────────────────────────
+
 export async function signIn(email, password) {
-  const { data, error } = await sb.auth.signInWithPassword({ email, password });
-  if (error) throw error;
-  return data;
+  const token = await authSignInWithPassword(email, password);
+  await applyToken(token);
+  notify();
+  return token;
+}
+
+export async function signUp(email, password, metadata = {}) {
+  // Returns either { access_token, refresh_token, ... } if email confirmation
+  // is disabled (most likely setup), or { user, session: null } otherwise.
+  const result = await authSignUp(email, password, metadata);
+  if (result?.access_token) {
+    await applyToken(result);
+    notify();
+    return { session: result, user: result.user };
+  }
+  // Email confirmation required — caller may need to sign in explicitly.
+  return { session: null, user: result?.user ?? result };
 }
 
 export async function signOut() {
-  await sb.auth.signOut();
-  currentSession = null;
-  currentProfile = null;
+  const token = currentSession?.access_token;
+  clearSession();
   notify();
+  // Hard-reload to /login to drop any stale view state. Fire-and-forget revoke.
+  if (token) authSignOut(token).catch(() => {});
+  location.hash = '#/login';
 }
 
 export function getInitials(name, email) {

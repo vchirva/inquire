@@ -1,7 +1,7 @@
 import { sb } from '../supabase.js';
 import { showToast } from '../utils.js';
 import { navigate } from '../router.js';
-import { refreshProfile } from '../auth.js';
+import { refreshProfile, signUp, signIn } from '../auth.js';
 
 export async function renderRegister(root, params) {
   const token = params.token;
@@ -78,20 +78,20 @@ export async function renderRegister(root, params) {
     btnText.innerHTML = '<span class="spinner"></span> Creating account';
 
     try {
-      // 1. Sign up
-      const { data: signUpData, error: signUpErr } = await sb.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: fullName } }
-      });
-      if (signUpErr) throw signUpErr;
+      // 1. Sign up — auth module handles the response shape and stores tokens.
+      let signUpResult;
+      try {
+        signUpResult = await signUp(email, password, { full_name: fullName });
+      } catch (err) {
+        throw err;
+      }
 
-      // If email confirmation is required, signUp returns user but no session.
-      // For the registration flow we want them logged in immediately.
-      if (!signUpData.session) {
-        // Try sign-in (works if email confirmation is disabled in Supabase auth settings)
-        const { error: signInErr } = await sb.auth.signInWithPassword({ email, password });
-        if (signInErr) {
+      // If email confirmation is required, signUp returns no session.
+      // Try a direct sign-in (works if email confirmation is off in Supabase settings).
+      if (!signUpResult.session) {
+        try {
+          await signIn(email, password);
+        } catch {
           showToast('Account created. Please check your email to confirm, then sign in.', 'success', 5000);
           setTimeout(() => navigate('/login'), 1500);
           return;
@@ -103,8 +103,6 @@ export async function renderRegister(root, params) {
       if (rpcErr) throw rpcErr;
 
       // 3. Force-reload profile so getProfile() returns the freshly set client_id.
-      // Without this, the cabinet renders with a stale profile (client_id=null)
-      // and shows the "No organization" empty state.
       await refreshProfile();
 
       showToast('Welcome to Inquire!', 'success');

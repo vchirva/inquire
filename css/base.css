@@ -89,6 +89,15 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
   font-weight: 600;
 }
 
+.app-loading-hint {
+  font-size: 13px;
+  color: var(--ink-mute);
+  max-width: 380px;
+  text-align: center;
+  margin-top: -12px;
+  line-height: 1.5;
+}
+
 /* Toast / banner messages */
 .toast {
   position: fixed;
