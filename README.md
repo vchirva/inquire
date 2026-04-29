@@ -53,8 +53,9 @@ inquire/
 - [x] **Slice 1:** Admin dashboard reads real data
 - [x] **Slice 1:** Client cabinet placeholder + client registration view
 - [x] **Slice 2:** Client management — list, search, create, edit, registration invites
-- [ ] Slice 3: Questionnaire builder
-- [ ] Slice 4: Link group generation + per-questionnaire results
+- [x] **Slice 3a:** Questionnaire list (filter/search/clone) + builder (autosave, all 6 types, conditional logic, assignments)
+- [ ] Slice 3b: Publishing — lock + generate link group
+- [ ] Slice 4: Per-questionnaire results dashboard
 - [ ] Slice 5: Respondent flow
 - [ ] Slice 6: Client cabinet dashboards
 - [ ] Slice 7: PDF reports (templated + LLM)
@@ -72,7 +73,8 @@ See **[docs/setup.md](docs/setup.md)** for full setup.
 | `#/admin` | admin | Dashboard overview |
 | `#/admin/clients` | admin | List all clients, search, create new |
 | `#/admin/clients/:id` | admin | Client info, edit, generate registration invites |
-| `#/admin/questionnaires` | admin | (placeholder — Slice 3) |
+| `#/admin/questionnaires` | admin | List, filter, search, clone, delete |
+| `#/admin/questionnaires/:id` | admin | Builder — autosave-driven editing |
 | `#/admin/settings` | admin | (placeholder — LLM config) |
 | `#/cabinet` | client | (placeholder — Slice 6) |
 

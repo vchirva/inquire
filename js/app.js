@@ -9,6 +9,8 @@ import { renderClientsList } from './views/clients-list.js';
 import { renderClientDetail } from './views/client-detail.js';
 import { renderClientCabinet } from './views/client-cabinet.js';
 import { renderRegister } from './views/register.js';
+import { renderQuestionnairesList } from './views/questionnaires-list.js';
+import { renderQuestionnaireBuilder } from './views/questionnaire-builder.js';
 import { renderAdminTopbar, attachAdminTopbarHandlers } from './views/_topbar.js';
 
 // ---- Public routes ----
@@ -45,19 +47,14 @@ defineRoute({
 
 defineRoute({
   pattern: '/admin/questionnaires',
-  render: (root) => {
-    root.innerHTML = `
-      ${renderAdminTopbar('/admin/questionnaires')}
-      <div class="container">
-        <div class="empty">
-          <div class="empty-title">Questionnaires screen coming next</div>
-          <div class="empty-text">This is where you'll build, clone, and publish questionnaires.</div>
-          <button class="btn btn-outline" onclick="location.hash='#/admin'">Back to dashboard</button>
-        </div>
-      </div>
-    `;
-    attachAdminTopbarHandlers(root);
-  },
+  render: renderQuestionnairesList,
+  requireAuth: true,
+  requireRole: 'admin'
+});
+
+defineRoute({
+  pattern: /^\/admin\/questionnaires\/(?<id>[a-f0-9-]+)$/,
+  render: renderQuestionnaireBuilder,
   requireAuth: true,
   requireRole: 'admin'
 });
