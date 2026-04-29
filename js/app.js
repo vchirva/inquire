@@ -8,6 +8,7 @@ import { renderAdminDashboard } from './views/admin-dashboard.js';
 import { renderClientsList } from './views/clients-list.js';
 import { renderClientDetail } from './views/client-detail.js';
 import { renderClientCabinet } from './views/client-cabinet.js';
+import { renderClientQuestionnaireDashboard } from './views/client-questionnaire.js';
 import { renderRegister } from './views/register.js';
 import { renderRespondent } from './views/respondent.js';
 import { renderQuestionnairesList } from './views/questionnaires-list.js';
@@ -99,6 +100,13 @@ defineRoute({
 defineRoute({
   pattern: '/cabinet',
   render: renderClientCabinet,
+  requireAuth: true,
+  requireRole: 'client'
+});
+
+defineRoute({
+  pattern: /^\/cabinet\/q\/(?<id>[a-f0-9-]+)$/,
+  render: renderClientQuestionnaireDashboard,
   requireAuth: true,
   requireRole: 'client'
 });

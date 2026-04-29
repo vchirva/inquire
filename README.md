@@ -57,7 +57,7 @@ inquire/
 - [x] **Slice 3b:** Publish — validates + locks + auto-creates link groups
 - [x] **Slice 4:** Per-questionnaire results dashboard (link group management + per-question breakdown charts)
 - [x] **Slice 5:** Respondent flow — one question per page, conditional logic, autosave, resume via cookie, review screen, submit
-- [ ] Slice 6: Client cabinet dashboards
+- [x] **Slice 6:** Client cabinet — overview list + per-questionnaire dashboard, scoped read-only by RLS
 - [ ] Slice 7: PDF reports (templated + LLM)
 
 ## Get started
@@ -77,8 +77,9 @@ See **[docs/setup.md](docs/setup.md)** for full setup.
 | `#/admin/questionnaires/:id` | admin | Builder — autosave-driven editing |
 | `#/admin/questionnaires/:id/results` | admin | Results dashboard — link groups, stats, per-question breakdown |
 | `#/q/:token` | anonymous | Respondent flow — one question per page, autosave, review, submit |
+| `#/cabinet` | client | Cabinet overview — list of assigned questionnaires |
+| `#/cabinet/q/:id` | client | Per-questionnaire dashboard, read-only |
 | `#/admin/settings` | admin | (placeholder — LLM config) |
-| `#/cabinet` | client | (placeholder — Slice 6) |
 
 ## Specs
 

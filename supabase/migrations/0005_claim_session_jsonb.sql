@@ -5,8 +5,13 @@
 -- PostgREST/Supabase JS interpreted as single-row-required, causing
 -- "Cannot coerce the result to a single JSON object" errors. Returning jsonb
 -- directly is unambiguous.
+--
+-- Postgres can't change a function's return type via CREATE OR REPLACE,
+-- so we drop and recreate.
 
-create or replace function claim_session(
+drop function if exists claim_session(uuid, uuid);
+
+create function claim_session(
   p_group_token uuid,
   p_existing_session_token uuid default null
 )
