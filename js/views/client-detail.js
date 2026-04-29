@@ -1,11 +1,23 @@
+// Client detail view — info, edit, registration invite generation.
+// Uses delegated click handling for resilience across re-renders (Safari-safe).
+
 import { sb } from '../supabase.js';
 import { navigate } from '../router.js';
 import { getSession } from '../auth.js';
 import { escapeHtml, showToast } from '../utils.js';
 import { renderAdminTopbar, attachAdminTopbarHandlers } from './_topbar.js';
 
+const LOAD_TIMEOUT_MS = 8000;
+
+function withTimeout(p, ms, label) {
+  return Promise.race([
+    p,
+    new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} timed out`)), ms))
+  ]);
+}
+
 export async function renderClientDetail(root, params) {
-  const clientId = params.id;
+  const ctx = { id: params.id };
 
   root.innerHTML = `
     ${renderAdminTopbar('/admin/clients')}
@@ -15,35 +27,76 @@ export async function renderClientDetail(root, params) {
       </div>
     </div>
   `;
-
   attachAdminTopbarHandlers(root);
 
-  // Load the client and existing invites in parallel
-  const [clientQ, invitesQ] = await Promise.all([
-    sb.from('clients').select('*').eq('id', clientId).single(),
-    sb.from('client_registration_invites').select('*').eq('client_id', clientId).order('created_at', { ascending: false })
-  ]);
+  const container = root.querySelector('#detailContainer');
+
+  // Single delegated click handler on the container — survives re-renders
+  container.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-back]')) {
+      e.preventDefault();
+      navigate('/admin/clients');
+      return;
+    }
+    if (e.target.closest('#editClientBtn')) {
+      e.preventDefault();
+      openEditModal(ctx, container);
+      return;
+    }
+    if (e.target.closest('#generateInviteBtn')) {
+      e.preventDefault();
+      await generateInvite(ctx, container);
+      return;
+    }
+    const copyBtn = e.target.closest('[data-copy]');
+    if (copyBtn) {
+      e.preventDefault();
+      await copyToClipboard(copyBtn.getAttribute('data-copy'));
+      const original = copyBtn.textContent;
+      copyBtn.textContent = '✓ Copied';
+      setTimeout(() => { copyBtn.textContent = original; }, 1400);
+      return;
+    }
+  });
+
+  try {
+    await loadAndPaint(ctx, container);
+  } catch (err) {
+    console.error('Client detail load failed:', err);
+    container.innerHTML = `
+      <div class="empty">
+        <div class="empty-title">Couldn't load client</div>
+        <div class="empty-text">${escapeHtml(err?.message ?? '')}</div>
+        <button class="btn btn-outline" data-back>Back to clients</button>
+      </div>
+    `;
+  }
+}
+
+async function loadAndPaint(ctx, container) {
+  const [clientQ, invitesQ] = await withTimeout(Promise.all([
+    sb.from('clients').select('*').eq('id', ctx.id).single(),
+    sb.from('client_registration_invites').select('*').eq('client_id', ctx.id).order('created_at', { ascending: false })
+  ]), LOAD_TIMEOUT_MS, 'load client');
 
   if (clientQ.error || !clientQ.data) {
-    root.querySelector('#detailContainer').innerHTML = `
+    container.innerHTML = `
       <div class="empty">
         <div class="empty-title">Client not found</div>
         <div class="empty-text">The client you're looking for doesn't exist or you don't have access to it.</div>
         <button class="btn btn-outline" data-back>Back to clients</button>
       </div>
     `;
-    root.querySelector('[data-back]').addEventListener('click', () => navigate('/admin/clients'));
     return;
   }
 
-  const client = clientQ.data;
-  const invites = invitesQ.data || [];
-
-  renderDetail(root, client, invites);
+  ctx.client = clientQ.data;
+  ctx.invites = invitesQ.data || [];
+  paint(ctx, container);
 }
 
-function renderDetail(root, client, invites) {
-  const container = root.querySelector('#detailContainer');
+function paint(ctx, container) {
+  const client = ctx.client;
 
   container.innerHTML = `
     <button class="back-link" data-back>← Back to clients</button>
@@ -55,7 +108,7 @@ function renderDetail(root, client, invites) {
         <p class="page-subtitle">${escapeHtml(client.contact_email ?? 'No contact email set')}</p>
       </div>
       <div style="display:flex; gap:12px;">
-        <button class="btn btn-outline" id="editClientBtn">Edit</button>
+        <button type="button" class="btn btn-outline" id="editClientBtn">Edit</button>
       </div>
     </section>
 
@@ -88,7 +141,7 @@ function renderDetail(root, client, invites) {
           </p>
 
           <div id="inviteList">
-            ${renderInviteList(invites)}
+            ${renderInviteList(ctx.invites)}
           </div>
         </section>
       </div>
@@ -97,7 +150,7 @@ function renderDetail(root, client, invites) {
         <div class="sidebar-card">
           <h3>Generate invite link</h3>
           <p>Create a registration link for this client's main contact. They'll use it to set their password and access their cabinet.</p>
-          <button class="btn btn-red" id="generateInviteBtn" style="width:100%;">
+          <button type="button" class="btn btn-red" id="generateInviteBtn" style="width:100%;">
             Generate <span class="arrow">→</span>
           </button>
           <div id="inviteOutput"></div>
@@ -105,10 +158,6 @@ function renderDetail(root, client, invites) {
       </aside>
     </div>
   `;
-
-  container.querySelector('[data-back]').addEventListener('click', () => navigate('/admin/clients'));
-  container.querySelector('#editClientBtn').addEventListener('click', () => openEditModal(root, client));
-  container.querySelector('#generateInviteBtn').addEventListener('click', () => generateInvite(root, client));
 }
 
 function renderInviteList(invites) {
@@ -133,7 +182,7 @@ function renderInviteList(invites) {
             </div>
             <span class="invite-status-badge ${status}">${status}</span>
             <span class="client-meta">${status === 'used' ? 'Consumed' : 'Expires ' + formatDate(inv.expires_at)}</span>
-            <button class="btn btn-outline btn-sm" data-copy="${escapeHtml(url)}" ${status !== 'pending' ? 'disabled' : ''}>
+            <button type="button" class="btn btn-outline btn-sm" data-copy="${escapeHtml(url)}" ${status !== 'pending' ? 'disabled' : ''}>
               ${status === 'pending' ? 'Copy link' : '—'}
             </button>
           </div>
@@ -154,98 +203,92 @@ function buildInviteUrl(token) {
   return `${base}#/register/${token}`;
 }
 
-async function generateInvite(root, client) {
+async function generateInvite(ctx, container) {
   const session = getSession();
-  const email = client.contact_email;
+  const email = ctx.client.contact_email;
 
   if (!email) {
     showToast('Add a contact email to the client first', 'error');
     return;
   }
 
-  const btn = root.querySelector('#generateInviteBtn');
+  const btn = container.querySelector('#generateInviteBtn');
+  if (!btn) return;
   const original = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Generating';
 
   try {
-    const { data, error } = await sb
-      .from('client_registration_invites')
-      .insert({
-        client_id: client.id,
-        email,
-        created_by: session.user.id
-      })
-      .select()
-      .single();
+    const { data, error } = await withTimeout(
+      sb.from('client_registration_invites')
+        .insert({ client_id: ctx.client.id, email, created_by: session.user.id })
+        .select()
+        .single(),
+      LOAD_TIMEOUT_MS,
+      'create invite'
+    );
 
     if (error) throw error;
 
     const url = buildInviteUrl(data.token);
-    const output = root.querySelector('#inviteOutput');
-    output.innerHTML = `
-      <div class="invite-output" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.15);">
-        <div class="invite-output-label" style="color: rgba(255,255,255,0.7);">Registration link</div>
-        <div class="invite-url" style="background: rgba(0,0,0,0.3); border-color: rgba(255,255,255,0.15); color: white;">${escapeHtml(url)}</div>
-        <div class="invite-meta" style="color: rgba(255,255,255,0.5);">For ${escapeHtml(email)} · expires in 30 days</div>
-        <button class="btn btn-red btn-sm" id="copyInviteBtn" style="width:100%;">Copy to clipboard</button>
-      </div>
-    `;
-    output.querySelector('#copyInviteBtn').addEventListener('click', async () => {
-      await copyToClipboard(url);
-      showToast('Link copied to clipboard', 'success');
-    });
+    const output = container.querySelector('#inviteOutput');
+    if (output) {
+      output.innerHTML = `
+        <div class="invite-output" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.15); margin-top: 24px;">
+          <div class="invite-output-label" style="color: rgba(255,255,255,0.7);">Registration link</div>
+          <div class="invite-url" style="background: rgba(0,0,0,0.3); border-color: rgba(255,255,255,0.15); color: white;">${escapeHtml(url)}</div>
+          <div class="invite-meta" style="color: rgba(255,255,255,0.5);">For ${escapeHtml(email)} · expires in 30 days</div>
+          <button type="button" class="btn btn-red btn-sm" data-copy="${escapeHtml(url)}" style="width:100%;">Copy to clipboard</button>
+        </div>
+      `;
+    }
 
     showToast('Invite created', 'success');
 
-    // Reload the invite list
+    // Refresh the invite list (fetch fresh data, repaint just that section)
     const { data: updated } = await sb
       .from('client_registration_invites')
       .select('*')
-      .eq('client_id', client.id)
+      .eq('client_id', ctx.client.id)
       .order('created_at', { ascending: false });
-    root.querySelector('#inviteList').innerHTML = renderInviteList(updated || []);
-    attachCopyHandlers(root);
+    ctx.invites = updated || [];
+    const list = container.querySelector('#inviteList');
+    if (list) list.innerHTML = renderInviteList(ctx.invites);
+    // No re-attaching handlers — delegation on the container takes care of it
   } catch (err) {
     console.error(err);
     showToast(err?.message ?? 'Failed to generate invite', 'error');
   } finally {
-    btn.disabled = false;
-    btn.innerHTML = original;
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }
   }
-}
-
-function attachCopyHandlers(root) {
-  root.querySelectorAll('[data-copy]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      await copyToClipboard(btn.dataset.copy);
-      const original = btn.textContent;
-      btn.textContent = '✓ Copied';
-      setTimeout(() => { btn.textContent = original; }, 1400);
-    });
-  });
 }
 
 async function copyToClipboard(text) {
   try {
     await navigator.clipboard.writeText(text);
   } catch {
-    // Fallback for older browsers
+    // Fallback (older Safari, non-secure contexts)
     const ta = document.createElement('textarea');
     ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
     document.body.appendChild(ta);
     ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
+    try { document.execCommand('copy'); } catch {}
+    ta.remove();
   }
 }
 
-function openEditModal(root, client) {
+function openEditModal(ctx, container) {
+  const client = ctx.client;
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
   backdrop.innerHTML = `
     <div class="modal" role="dialog" aria-modal="true">
-      <button class="modal-close" aria-label="Close">×</button>
+      <button type="button" class="modal-close" aria-label="Close">×</button>
       <div class="modal-eyebrow">Edit client</div>
       <h2 class="modal-title">${escapeHtml(client.name)}</h2>
       <p class="modal-subtitle">Update the organization details.</p>
@@ -268,8 +311,8 @@ function openEditModal(root, client) {
         </div>
 
         <div class="modal-actions">
-          <button class="btn btn-outline" type="button" id="editCancel">Cancel</button>
-          <button class="btn" type="submit" id="editSubmit">
+          <button type="button" class="btn btn-outline" id="editCancel">Cancel</button>
+          <button type="submit" class="btn" id="editSubmit">
             <span id="editSubmitText">Save</span>
             <span class="arrow">→</span>
           </button>
@@ -280,9 +323,12 @@ function openEditModal(root, client) {
   document.body.appendChild(backdrop);
 
   const close = () => backdrop.remove();
-  backdrop.querySelector('.modal-close').addEventListener('click', close);
-  backdrop.querySelector('#editCancel').addEventListener('click', close);
-  backdrop.addEventListener('click', e => { if (e.target === backdrop) close(); });
+  // Modal-scoped delegated click
+  backdrop.addEventListener('click', e => {
+    if (e.target === backdrop) return close();
+    if (e.target.closest('.modal-close')) return close();
+    if (e.target.closest('#editCancel')) return close();
+  });
 
   const form = backdrop.querySelector('#editClientForm');
   const errorEl = backdrop.querySelector('#editError');
@@ -316,8 +362,9 @@ function openEditModal(root, client) {
 
       showToast('Client updated', 'success');
       close();
-      // Reload the page
-      renderClientDetail(root, { id: client.id });
+      // Refresh ctx + repaint just the container (not the whole route)
+      ctx.client = { ...client, name, contact_email: form.contact_email.value.trim() || null, notes: form.notes.value.trim() || null };
+      paint(ctx, container);
     } catch (err) {
       console.error(err);
       errorEl.textContent = err?.message ?? 'Update failed.';

@@ -197,44 +197,58 @@ function renderRows(ctx, rows) {
   }).join('');
 
   list.querySelectorAll('.q-row').forEach(row => {
-    const open = e => {
-      if (e.target.closest('.row-menu-trigger') || e.target.closest('.row-menu')) return;
-      navigate(`/admin/questionnaires/${row.dataset.id}`);
-    };
-    row.addEventListener('click', open);
     row.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(e); }
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        if (e.target.closest('.row-menu-trigger') || e.target.closest('.row-menu')) return;
+        navigate(`/admin/questionnaires/${row.dataset.id}`);
+      }
     });
   });
 
-  list.querySelectorAll('.row-menu-trigger').forEach(btn => {
-    btn.addEventListener('click', e => {
+  // Delegated click on the list — handles row click, menu trigger, and menu actions.
+  // We attach this once per render but it's idempotent; the only risk would be
+  // accumulation across renders, which we mitigate by always replacing list.innerHTML.
+  list.onclick = async (e) => {
+    // 1. Menu trigger ⋯
+    const trigger = e.target.closest('.row-menu-trigger');
+    if (trigger) {
       e.stopPropagation();
-      const wrap = btn.parentElement;
+      const wrap = trigger.parentElement;
       const existing = wrap.querySelector('.row-menu');
       closeOpenRowMenus();
       if (existing) return;
-      const id = btn.dataset.menu;
+      const id = trigger.getAttribute('data-menu');
       const menu = document.createElement('div');
       menu.className = 'row-menu';
       menu.innerHTML = `
-        <button data-action="open" data-id="${id}">Open</button>
-        <button data-action="clone" data-id="${id}">Clone</button>
-        <button data-action="delete" data-id="${id}" class="danger">Delete</button>
+        <button type="button" data-action="open" data-id="${id}">Open</button>
+        <button type="button" data-action="clone" data-id="${id}">Clone</button>
+        <button type="button" data-action="delete" data-id="${id}" class="danger">Delete</button>
       `;
       wrap.appendChild(menu);
+      return;
+    }
 
-      menu.querySelectorAll('button').forEach(mb => {
-        mb.addEventListener('click', async ev => {
-          ev.stopPropagation();
-          closeOpenRowMenus();
-          if (mb.dataset.action === 'open') navigate(`/admin/questionnaires/${id}`);
-          else if (mb.dataset.action === 'clone') await cloneOne(id);
-          else if (mb.dataset.action === 'delete') await deleteOne(ctx, id);
-        });
-      });
-    });
-  });
+    // 2. Action button inside an open menu
+    const action = e.target.closest('.row-menu button[data-action]');
+    if (action) {
+      e.stopPropagation();
+      const id = action.getAttribute('data-id');
+      const kind = action.getAttribute('data-action');
+      closeOpenRowMenus();
+      if (kind === 'open') navigate(`/admin/questionnaires/${id}`);
+      else if (kind === 'clone') await cloneOne(id);
+      else if (kind === 'delete') await deleteOne(ctx, id);
+      return;
+    }
+
+    // 3. Plain row click (open builder)
+    const row = e.target.closest('.q-row');
+    if (row) {
+      navigate(`/admin/questionnaires/${row.dataset.id}`);
+    }
+  };
 }
 
 function closeOpenRowMenus() {
