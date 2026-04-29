@@ -1,17 +1,23 @@
 // Results dashboard for a single questionnaire.
-// Shows: link group(s) per client (open/close, copy URL),
-// stats, and per-question breakdown.
+// Uses event delegation for resilience across re-renders.
 
 import { sb } from '../supabase.js';
 import { navigate } from '../router.js';
 import { escapeHtml, showToast } from '../utils.js';
 import { renderAdminTopbar, attachAdminTopbarHandlers } from './_topbar.js';
 
-let ctx = null;
+const LOAD_TIMEOUT_MS = 8000;
+
+function withTimeout(p, ms, label) {
+  return Promise.race([
+    p,
+    new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} timed out`)), ms))
+  ]);
+}
 
 export async function renderQuestionnaireResults(root, params) {
-  const id = params.id;
-  ctx = { id };
+  // Per-render state — no module-level persistence
+  const ctx = { id: params.id };
 
   root.innerHTML = `
     ${renderAdminTopbar('/admin/questionnaires')}
@@ -23,11 +29,75 @@ export async function renderQuestionnaireResults(root, params) {
   `;
   attachAdminTopbarHandlers(root);
 
+  const container = root.querySelector('#resultsContainer');
+
+  // Single delegated click handler for the whole container.
+  // Survives re-renders and avoids per-element handler accumulation.
+  container.addEventListener('click', async (e) => {
+    const copyBtn = e.target.closest('[data-copy]');
+    if (copyBtn) {
+      e.preventDefault();
+      const text = copyBtn.getAttribute('data-copy');
+      try {
+        await navigator.clipboard.writeText(text);
+        const original = copyBtn.textContent;
+        copyBtn.textContent = '✓ Copied';
+        setTimeout(() => { copyBtn.textContent = original; }, 1400);
+      } catch {
+        // Safari/HTTP fallback
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch {}
+        ta.remove();
+        const original = copyBtn.textContent;
+        copyBtn.textContent = '✓ Copied';
+        setTimeout(() => { copyBtn.textContent = original; }, 1400);
+      }
+      return;
+    }
+
+    const toggleBtn = e.target.closest('[data-toggle]');
+    if (toggleBtn) {
+      e.preventDefault();
+      const id = toggleBtn.getAttribute('data-toggle');
+      const current = toggleBtn.getAttribute('data-current');
+      const fn = current === 'open' ? 'close_link_group' : 'reopen_link_group';
+      toggleBtn.disabled = true;
+      try {
+        const { error } = await withTimeout(
+          sb.rpc(fn, { p_group_id: id }),
+          LOAD_TIMEOUT_MS,
+          fn
+        );
+        if (error) { showToast('Failed: ' + error.message, 'error'); return; }
+        showToast(current === 'open' ? 'Link closed' : 'Link reopened', 'success');
+        await loadAndPaint(ctx, container);
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        // Button may have been re-rendered already; this is a no-op then
+        toggleBtn.disabled = false;
+      }
+      return;
+    }
+
+    const backBtn = e.target.closest('#backBtn, #editBtn');
+    if (backBtn) {
+      e.preventDefault();
+      navigate(`/admin/questionnaires/${ctx.id}`);
+      return;
+    }
+  });
+
   try {
-    await load();
+    await loadAndPaint(ctx, container);
   } catch (err) {
-    console.error(err);
-    root.querySelector('#resultsContainer').innerHTML = `
+    console.error('Results load failed:', err);
+    container.innerHTML = `
       <div class="empty">
         <div class="empty-title">Couldn't load results</div>
         <div class="empty-text">${escapeHtml(err?.message ?? '')}</div>
@@ -37,7 +107,12 @@ export async function renderQuestionnaireResults(root, params) {
   }
 }
 
-async function load() {
+async function loadAndPaint(ctx, container) {
+  await withTimeout(loadData(ctx), LOAD_TIMEOUT_MS, 'load results');
+  paint(ctx, container);
+}
+
+async function loadData(ctx) {
   const id = ctx.id;
   const [qRes, qsRes, lgRes, ssRes, cRes] = await Promise.all([
     sb.from('questionnaires').select('*').eq('id', id).single(),
@@ -49,6 +124,9 @@ async function load() {
 
   if (qRes.error) throw qRes.error;
   if (!qRes.data) throw new Error('Questionnaire not found');
+  if (qsRes.error) throw qsRes.error;
+  if (lgRes.error) throw lgRes.error;
+  if (ssRes.error) throw ssRes.error;
 
   ctx.questionnaire = qRes.data;
   ctx.questions = qsRes.data || [];
@@ -56,7 +134,7 @@ async function load() {
   ctx.sessions = ssRes.data || [];
   ctx.clientsById = Object.fromEntries((cRes.data || []).map(c => [c.id, c.name]));
 
-  // Fetch responses for submitted sessions only
+  // Responses for submitted sessions only
   const submittedIds = ctx.sessions.filter(s => s.status === 'submitted').map(s => s.id);
   if (submittedIds.length > 0) {
     const { data: responses, error: rErr } = await sb
@@ -68,14 +146,9 @@ async function load() {
   } else {
     ctx.responses = [];
   }
-
-  paint();
 }
 
-function paint() {
-  const container = document.getElementById('resultsContainer');
-  if (!container) return;
-
+function paint(ctx, container) {
   const q = ctx.questionnaire;
   const submitted = ctx.sessions.filter(s => s.status === 'submitted').length;
   const inProgress = ctx.sessions.filter(s => s.status === 'in_progress').length;
@@ -129,7 +202,7 @@ function paint() {
           <h2 class="section-title">Share links</h2>
         </div>
       </div>
-      <div id="linkGroupsContainer">${renderLinkGroups()}</div>
+      <div>${renderLinkGroups(ctx)}</div>
     </section>
 
     <section class="section">
@@ -139,20 +212,12 @@ function paint() {
           <h2 class="section-title">Per-question results</h2>
         </div>
       </div>
-      <div id="breakdownContainer">${renderBreakdown()}</div>
+      <div>${renderBreakdown(ctx)}</div>
     </section>
   `;
-
-  container.querySelector('#backBtn').addEventListener('click', () => {
-    navigate(`/admin/questionnaires/${q.id}`);
-  });
-  container.querySelector('#editBtn').addEventListener('click', () => {
-    navigate(`/admin/questionnaires/${q.id}`);
-  });
-  wireLinkGroupHandlers();
 }
 
-function renderLinkGroups() {
+function renderLinkGroups(ctx) {
   if (ctx.linkGroups.length === 0) {
     return `
       <div class="empty">
@@ -176,7 +241,7 @@ function renderLinkGroups() {
             <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.1em; font-weight:700; color: var(--ink-mute);">For client</div>
             <div style="font-size:18px; font-weight:700; margin-top:2px;">${escapeHtml(clientName)}</div>
           </div>
-          <span class="invite-status-badge ${isOpen ? 'pending' : 'used'}" style="${isOpen ? 'background: var(--green); color: white; border: none;' : ''}">${isOpen ? 'Open' : 'Closed'}</span>
+          <span class="invite-status-badge" style="background: ${isOpen ? 'var(--green)' : 'var(--ink)'}; color: white; border: none;">${isOpen ? 'Open' : 'Closed'}</span>
         </div>
         <div class="invite-url">${escapeHtml(url)}</div>
         <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap: wrap;">
@@ -185,8 +250,8 @@ function renderLinkGroups() {
             · ${subCount} submitted
           </div>
           <div style="display:flex; gap:8px;">
-            <button class="btn btn-outline btn-sm" data-copy="${escapeHtml(url)}">Copy link</button>
-            <button class="btn btn-outline btn-sm" data-toggle="${g.id}" data-current="${g.status}">${isOpen ? 'Close link' : 'Reopen link'}</button>
+            <button type="button" class="btn btn-outline btn-sm" data-copy="${escapeHtml(url)}">Copy link</button>
+            <button type="button" class="btn btn-outline btn-sm" data-toggle="${g.id}" data-current="${g.status}">${isOpen ? 'Close link' : 'Reopen link'}</button>
           </div>
         </div>
       </div>
@@ -199,38 +264,9 @@ function buildGroupUrl(token) {
   return `${base}#/q/${token}`;
 }
 
-function wireLinkGroupHandlers() {
-  document.querySelectorAll('[data-copy]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(btn.dataset.copy);
-        const original = btn.textContent;
-        btn.textContent = '✓ Copied';
-        setTimeout(() => btn.textContent = original, 1400);
-      } catch {
-        showToast('Copy failed — select the URL manually', 'error');
-      }
-    });
-  });
-
-  document.querySelectorAll('[data-toggle]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.toggle;
-      const current = btn.dataset.current;
-      const fn = current === 'open' ? 'close_link_group' : 'reopen_link_group';
-      btn.disabled = true;
-      const { error } = await sb.rpc(fn, { p_group_id: id });
-      btn.disabled = false;
-      if (error) { showToast('Failed: ' + error.message, 'error'); return; }
-      showToast(current === 'open' ? 'Link closed' : 'Link reopened', 'success');
-      await load();
-    });
-  });
-}
-
 // ─── Breakdown rendering ────────────────────────────────────────────────────
 
-function renderBreakdown() {
+function renderBreakdown(ctx) {
   if (ctx.questions.length === 0) {
     return '<div class="empty"><div class="empty-text">No questions in this questionnaire.</div></div>';
   }
@@ -274,45 +310,31 @@ function renderQuestionBreakdown(q, answers) {
   if (answers.length === 0) {
     return '<div style="font-size:13px; color: var(--ink-mute); padding: 8px 0;">No responses yet.</div>';
   }
-
-  if (q.type === 'single_choice' || q.type === 'multi_choice') {
-    return renderChoiceBreakdown(q, answers);
-  }
-  if (q.type === 'rating') {
-    return renderRatingBreakdown(q, answers);
-  }
-  if (q.type === 'date') {
-    return renderDateBreakdown(answers);
-  }
-  if (q.type === 'ranking') {
-    return renderRankingBreakdown(q, answers);
-  }
-  if (q.type === 'text') {
-    return renderTextBreakdown(answers);
-  }
+  if (q.type === 'single_choice' || q.type === 'multi_choice') return renderChoiceBreakdown(q, answers);
+  if (q.type === 'rating') return renderRatingBreakdown(q, answers);
+  if (q.type === 'date') return renderDateBreakdown(answers);
+  if (q.type === 'ranking') return renderRankingBreakdown(q, answers);
+  if (q.type === 'text') return renderTextBreakdown(answers);
   return '';
 }
 
 function renderChoiceBreakdown(q, answers) {
-  // Tally
-  const tallies = new Map();
   const opts = Array.isArray(q.options) ? q.options : [];
+  const tallies = new Map();
   for (const o of opts) tallies.set(o, 0);
   tallies.set('__OTHER__', 0);
 
   for (const a of answers) {
-    if (Array.isArray(a)) {
-      for (const v of a) tallies.set(opts.includes(v) ? v : '__OTHER__', (tallies.get(opts.includes(v) ? v : '__OTHER__') ?? 0) + 1);
-    } else if (a != null) {
-      tallies.set(opts.includes(a) ? a : '__OTHER__', (tallies.get(opts.includes(a) ? a : '__OTHER__') ?? 0) + 1);
+    const arr = Array.isArray(a) ? a : (a != null ? [a] : []);
+    for (const v of arr) {
+      const key = opts.includes(v) ? v : '__OTHER__';
+      tallies.set(key, (tallies.get(key) ?? 0) + 1);
     }
   }
 
   const total = answers.length;
-  const rows = [];
-  for (const o of opts) rows.push({ label: o, count: tallies.get(o) ?? 0 });
+  const rows = opts.map(o => ({ label: o, count: tallies.get(o) ?? 0 }));
   if ((tallies.get('__OTHER__') ?? 0) > 0) rows.push({ label: 'Other', count: tallies.get('__OTHER__') });
-
   return renderBars(rows, total);
 }
 
@@ -345,7 +367,6 @@ function renderRatingBreakdown(q, answers) {
 }
 
 function renderRankingBreakdown(q, answers) {
-  // Borda-count style: lower position = better. Score each item by sum-of-(N - pos).
   const opts = Array.isArray(q.options) ? q.options : [];
   const N = opts.length;
   const scores = new Map();
@@ -383,7 +404,6 @@ function renderTextBreakdown(answers) {
 }
 
 function renderDateBreakdown(answers) {
-  // Simple list with histogram by month
   const tallies = new Map();
   for (const a of answers) {
     const d = new Date(a);

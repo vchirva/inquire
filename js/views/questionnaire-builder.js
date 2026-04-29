@@ -36,6 +36,15 @@ function defaultOptions(type) {
 
 // ─── Entry ──────────────────────────────────────────────────────────────────
 
+const LOAD_TIMEOUT_MS = 8000;
+
+function withTimeout(p, ms, label) {
+  return Promise.race([
+    p,
+    new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} timed out`)), ms))
+  ]);
+}
+
 export async function renderQuestionnaireBuilder(root, params) {
   const id = params.id;
 
@@ -58,7 +67,7 @@ export async function renderQuestionnaireBuilder(root, params) {
 
   let ok = false;
   try {
-    ok = await loadAll(id);
+    ok = await withTimeout(loadAll(id), LOAD_TIMEOUT_MS, 'load builder');
   } catch (err) {
     console.error('Builder load failed:', err);
     root.querySelector('#builderContainer').innerHTML = `
@@ -67,6 +76,7 @@ export async function renderQuestionnaireBuilder(root, params) {
           <div class="empty-title">Couldn't load questionnaire</div>
           <div class="empty-text">${escapeHtml(err?.message ?? 'Unknown error')}</div>
           <button class="btn btn-outline" onclick="location.hash='#/admin/questionnaires'">Back to list</button>
+          <button class="btn" style="margin-left:8px;" onclick="location.reload()">Reload page</button>
         </div>
       </div>
     `;
