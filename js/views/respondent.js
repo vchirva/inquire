@@ -203,22 +203,46 @@ async function load(ctx) {
     return;
   }
 
-  // Load questionnaire and questions
-  const [qRes, qsRes] = await withTimeout(Promise.all([
-    sb.from('questionnaires').select('id, title, description').eq('id', session.questionnaire_id).single(),
-    sb.from('questions').select('id, type, text, required, options, show_if, order_index').eq('questionnaire_id', session.questionnaire_id).order('order_index')
-  ]), LOAD_TIMEOUT_MS, 'load questions');
+  // Load questionnaire + questions via RPC. Anonymous respondents can't read
+  // these tables directly under RLS, so we use a security-definer function
+  // gated by the session token.
+  const dataUrl = `${window.INQUIRE_CONFIG.supabaseUrl}/rest/v1/rpc/get_session_data`;
+  const dataRes = await withTimeout(fetch(dataUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'apikey': window.INQUIRE_CONFIG.supabaseAnonKey,
+      'Authorization': `Bearer ${window.INQUIRE_CONFIG.supabaseAnonKey}`
+    },
+    body: JSON.stringify({ p_token: ctx.sessionToken })
+  }), LOAD_TIMEOUT_MS, 'load questions');
 
-  if (qRes.error) throw qRes.error;
-  if (qsRes.error) throw qsRes.error;
-
-  ctx.questionnaire = qRes.data;
-  ctx.questions = qsRes.data || [];
+  if (!dataRes.ok) {
+    const text = await dataRes.text();
+    throw new Error(text);
+  }
+  const sessionData = await dataRes.json();
+  ctx.questionnaire = sessionData?.questionnaire ?? null;
+  ctx.questions = sessionData?.questions ?? [];
 
   // Load any previously-saved answers for this session (for resume)
-  const { data: prevAnswers } = await sb.rpc('get_session_answers', { p_token: ctx.sessionToken });
-  if (Array.isArray(prevAnswers)) {
-    for (const r of prevAnswers) ctx.answers.set(r.question_id, r.answer);
+  const answersUrl = `${window.INQUIRE_CONFIG.supabaseUrl}/rest/v1/rpc/get_session_answers`;
+  const ansRes = await fetch(answersUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'apikey': window.INQUIRE_CONFIG.supabaseAnonKey,
+      'Authorization': `Bearer ${window.INQUIRE_CONFIG.supabaseAnonKey}`
+    },
+    body: JSON.stringify({ p_token: ctx.sessionToken })
+  });
+  if (ansRes.ok) {
+    const prevAnswers = await ansRes.json();
+    if (Array.isArray(prevAnswers)) {
+      for (const r of prevAnswers) ctx.answers.set(r.question_id, r.answer);
+    }
   }
 }
 
