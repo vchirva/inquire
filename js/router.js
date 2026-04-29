@@ -33,7 +33,12 @@ async function handleRoute() {
   const path = location.hash.slice(1) || '/';
   const root = document.getElementById('app');
 
-  // Public route: client registration via invite token
+  // Authenticated users should never linger on public pages — bounce them home.
+  if (isAuthenticated() && (path === '/' || path === '/login' || path.startsWith('/register/'))) {
+    return navigate(isAdmin() ? '/admin' : '/cabinet');
+  }
+
+  // Public route: client registration via invite token (only for anonymous visitors)
   if (path.startsWith('/register/')) {
     const match = findRoute(path);
     if (match) {
@@ -43,13 +48,9 @@ async function handleRoute() {
     }
   }
 
-  // Default redirects based on auth state
+  // Default redirects for anonymous users
   if (!isAuthenticated()) {
     if (path !== '/login') return navigate('/login');
-  } else {
-    if (path === '/login' || path === '/') {
-      return navigate(isAdmin() ? '/admin' : '/cabinet');
-    }
   }
 
   const match = findRoute(path);
