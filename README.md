@@ -54,8 +54,8 @@ inquire/
 - [x] **Slice 1:** Client cabinet placeholder + client registration view
 - [x] **Slice 2:** Client management — list, search, create, edit, registration invites
 - [x] **Slice 3a:** Questionnaire list (filter/search/clone) + builder (autosave, all 6 types, conditional logic, assignments)
-- [ ] Slice 3b: Publishing — lock + generate link group
-- [ ] Slice 4: Per-questionnaire results dashboard
+- [x] **Slice 3b:** Publish — validates + locks + auto-creates link groups
+- [x] **Slice 4:** Per-questionnaire results dashboard (link group management + per-question breakdown charts)
 - [ ] Slice 5: Respondent flow
 - [ ] Slice 6: Client cabinet dashboards
 - [ ] Slice 7: PDF reports (templated + LLM)
@@ -75,6 +75,7 @@ See **[docs/setup.md](docs/setup.md)** for full setup.
 | `#/admin/clients/:id` | admin | Client info, edit, generate registration invites |
 | `#/admin/questionnaires` | admin | List, filter, search, clone, delete |
 | `#/admin/questionnaires/:id` | admin | Builder — autosave-driven editing |
+| `#/admin/questionnaires/:id/results` | admin | Results dashboard — link groups, stats, per-question breakdown |
 | `#/admin/settings` | admin | (placeholder — LLM config) |
 | `#/cabinet` | client | (placeholder — Slice 6) |
 

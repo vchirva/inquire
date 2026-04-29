@@ -16,16 +16,16 @@ export async function renderRegister(root, params) {
           </div>
         </div>
         <div>
-          <h2 class="login-quote">Welcome to <span class="red">Inquire</span>.</h2>
-          <div class="login-quote-attr">Set up your client account</div>
+          <h2 class="login-quote">You've been <span class="red">invited</span>.</h2>
+          <div class="login-quote-attr">Set up your client account to access your dashboards</div>
         </div>
       </div>
 
       <div class="login-right">
         <form class="login-form" id="registerForm" novalidate>
-          <div class="login-eyebrow">Create account</div>
-          <h1 class="login-title">Set your password.</h1>
-          <p class="login-subtitle">Choose a password to access your dashboards.</p>
+          <div class="login-eyebrow">Client registration</div>
+          <h1 class="login-title">Create your <span class="red">account</span>.</h1>
+          <p class="login-subtitle">Set a password to activate your invitation. You'll use this email and password to sign in from now on.</p>
 
           <div class="login-fields">
             <div class="field">
@@ -34,7 +34,7 @@ export async function renderRegister(root, params) {
               <span class="field-hint">Use the same email your administrator invited.</span>
             </div>
             <div class="field">
-              <label class="field-label" for="password">Password</label>
+              <label class="field-label" for="password">Choose a password</label>
               <input class="input" type="password" id="password" name="password" autocomplete="new-password" required minlength="8" />
               <span class="field-hint">Minimum 8 characters.</span>
             </div>
@@ -46,7 +46,7 @@ export async function renderRegister(root, params) {
           </div>
 
           <button class="btn btn-block" type="submit" id="registerBtn">
-            <span id="registerBtnText">Create account</span>
+            <span id="registerBtnText">Create my account</span>
             <span class="arrow">→</span>
           </button>
         </form>

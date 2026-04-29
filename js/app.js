@@ -11,6 +11,7 @@ import { renderClientCabinet } from './views/client-cabinet.js';
 import { renderRegister } from './views/register.js';
 import { renderQuestionnairesList } from './views/questionnaires-list.js';
 import { renderQuestionnaireBuilder } from './views/questionnaire-builder.js';
+import { renderQuestionnaireResults } from './views/questionnaire-results.js';
 import { renderAdminTopbar, attachAdminTopbarHandlers } from './views/_topbar.js';
 
 // ---- Public routes ----
@@ -18,7 +19,7 @@ import { renderAdminTopbar, attachAdminTopbarHandlers } from './views/_topbar.js
 defineRoute({ pattern: '/login', render: renderLogin });
 
 defineRoute({
-  pattern: /^\/register\/(?<token>[a-f0-9-]+)$/,
+  pattern: /^\/register\/(?<token>[A-Fa-f0-9-]+)\/?$/,
   render: renderRegister
 });
 
@@ -55,6 +56,13 @@ defineRoute({
 defineRoute({
   pattern: /^\/admin\/questionnaires\/(?<id>[a-f0-9-]+)$/,
   render: renderQuestionnaireBuilder,
+  requireAuth: true,
+  requireRole: 'admin'
+});
+
+defineRoute({
+  pattern: /^\/admin\/questionnaires\/(?<id>[a-f0-9-]+)\/results$/,
+  render: renderQuestionnaireResults,
   requireAuth: true,
   requireRole: 'admin'
 });

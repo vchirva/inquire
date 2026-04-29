@@ -162,8 +162,10 @@ function paint() {
           ${locked ? '' : `<button class="conditional-toggle remove" id="deleteQuestionnaireBtn" style="margin-left:8px;">Delete questionnaire</button>`}
         </div>
         <div style="display:flex; gap:12px;">
-          <button class="btn btn-outline" id="previewBtn" disabled title="Coming in a later slice">Preview</button>
-          ${locked ? '' : `<button class="btn" id="publishBtn" disabled title="Publishing comes in the next slice">Publish & generate link</button>`}
+          ${locked
+            ? `<button class="btn" id="viewResultsBtn">View results <span class="arrow">→</span></button>`
+            : `<button class="btn" id="publishBtn">Publish &amp; generate link <span class="arrow">→</span></button>`
+          }
         </div>
       </div>
     </div>
@@ -183,7 +185,13 @@ function paint() {
     });
     container.querySelector('#addQuestionBtn').addEventListener('click', addQuestion);
     container.querySelector('#deleteQuestionnaireBtn')?.addEventListener('click', deleteQuestionnaire);
+    container.querySelector('#publishBtn')?.addEventListener('click', publishQuestionnaire);
   }
+
+  // View results works for both locked and unlocked (won't render if no link_groups exist)
+  container.querySelector('#viewResultsBtn')?.addEventListener('click', () => {
+    navigate(`/admin/questionnaires/${state.questionnaire.id}/results`);
+  });
 
   paintClientChips();
   paintTagChips();
@@ -519,6 +527,53 @@ async function deleteQuestionnaire() {
   if (error) { showToast('Delete failed: ' + error.message, 'error'); return; }
   showToast('Questionnaire deleted', 'success');
   navigate('/admin/questionnaires');
+}
+
+async function publishQuestionnaire() {
+  // Front-end validation (mirrors what the RPC does, but with friendlier messages)
+  const issues = [];
+  if (!state.questionnaire.title?.trim()) issues.push('Title is empty');
+  if (state.questions.length === 0) issues.push('No questions added');
+  if (state.questions.some(q => !q.text?.trim())) issues.push('Some questions have no text');
+  if (state.clientIds.length === 0) issues.push('No clients assigned');
+  // Check choice/ranking questions have non-empty options
+  for (const q of state.questions) {
+    if (['single_choice', 'multi_choice', 'ranking'].includes(q.type)) {
+      const opts = Array.isArray(q.options) ? q.options : [];
+      const filled = opts.filter(o => o && o.trim()).length;
+      if (filled < 2) {
+        issues.push(`Question "${(q.text || 'untitled').slice(0, 40)}" needs at least 2 options`);
+      }
+    }
+  }
+
+  if (issues.length > 0) {
+    showToast('Cannot publish: ' + issues[0], 'error', 5000);
+    return;
+  }
+
+  if (!confirm(`Publish "${state.questionnaire.title}"?\n\nOnce published, the questionnaire is locked — questions cannot be edited. A shareable link will be generated for each assigned client.`)) {
+    return;
+  }
+
+  const btn = document.getElementById('publishBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Publishing';
+  }
+
+  const { error } = await sb.rpc('publish_questionnaire', { p_id: state.questionnaire.id });
+  if (error) {
+    showToast('Publish failed: ' + error.message, 'error', 5000);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = 'Publish &amp; generate link <span class="arrow">→</span>';
+    }
+    return;
+  }
+
+  showToast('Published! Loading results…', 'success');
+  navigate(`/admin/questionnaires/${state.questionnaire.id}/results`);
 }
 
 async function deleteQuestion(q) {
