@@ -6,58 +6,75 @@ Lightweight questionnaire platform. Three roles (admin, client, respondent), one
 
 ## Stack
 
-- **Frontend:** vanilla HTML / CSS / JS (no build step) · Sigma Software design language
-- **Hosting:** GitHub Pages (free, static)
-- **Backend:** Supabase — Postgres + Auth + Row Level Security + Edge Functions
-- **PDF reports:** server-rendered via Supabase Edge Function (LLM-enriched if configured)
+- **Frontend:** vanilla HTML / CSS / ES modules (no build step) · Sigma Software design language
+- **Hosting:** GitHub Pages
+- **Backend:** Supabase — Postgres + Auth + Row Level Security + Edge Functions (later)
+- **Routing:** hash-based, role-guarded (admin / client)
 
 ## Project structure
 
 ```
 inquire/
-├── index.html                       # admin dashboard (entry point — served by GitHub Pages)
+├── index.html                       # app shell
 ├── config.example.js                # template for Supabase credentials
-├── config.js                        # your real credentials (created from the example)
+├── config.js                        # your real credentials
+├── css/
+│   ├── tokens.css                   # colors, fonts, spacing
+│   ├── base.css                     # resets, typography, animations
+│   ├── components.css               # buttons, badges, inputs
+│   ├── layout.css                   # topbar, container, hero
+│   └── views.css                    # per-view styling
+├── js/
+│   ├── app.js                       # entry point
+│   ├── auth.js                      # session, profile, sign in/out
+│   ├── router.js                    # hash router with role guards
+│   ├── supabase.js                  # supabase-js client singleton
+│   ├── utils.js                     # helpers
+│   └── views/
+│       ├── login.js
+│       ├── register.js              # client registration via invite
+│       ├── admin-dashboard.js
+│       └── client-cabinet.js
 ├── supabase/
 │   └── migrations/
-│       └── 0001_initial_schema.sql  # database schema, RLS, RPCs
+│       └── 0001_initial_schema.sql
 ├── docs/
-│   ├── requirements.md              # canonical spec
-│   ├── setup.md                     # how to spin everything up
-│   └── schema.md                    # ER diagram + table descriptions
+│   ├── requirements.md
+│   ├── setup.md
+│   └── schema.md
 └── README.md
 ```
 
-> Files at the repo root are what GitHub Pages serves. Everything in `supabase/` and `docs/` is project metadata, not part of the live site.
-
 ## Status
 
-- [x] Admin dashboard mock (Sigma styling)
+- [x] Admin dashboard UI (Sigma styling)
 - [x] Database schema + RLS policies + helper RPCs
-- [x] Setup documentation
-- [ ] Supabase client + auth wiring
-- [ ] Admin: client management screen
-- [ ] Admin: questionnaire builder
-- [ ] Admin: link group generation
-- [ ] Respondent flow (one question per page, resume support)
-- [ ] Client cabinet (read-only dashboards)
-- [ ] PDF report generation (templated)
-- [ ] PDF report enrichment (LLM via Edge Function)
+- [x] **Slice 1:** Auth shell — login, role-based routing, real Supabase wiring
+- [x] **Slice 1:** Admin dashboard reads real data
+- [x] **Slice 1:** Client cabinet placeholder + client registration view
+- [ ] Slice 2: Client management screen
+- [ ] Slice 3: Questionnaire builder
+- [ ] Slice 4: Link group generation + per-questionnaire results
+- [ ] Slice 5: Respondent flow
+- [ ] Slice 6: Client cabinet dashboards
+- [ ] Slice 7: PDF reports (templated + LLM)
 
 ## Get started
 
-See **[docs/setup.md](docs/setup.md)** for full setup. Short version:
+See **[docs/setup.md](docs/setup.md)** for full setup.
 
-1. Create a Supabase project
-2. Run `supabase/migrations/0001_initial_schema.sql` in the SQL editor
-3. Promote your auth user to admin via SQL
-4. Copy `config.example.js` → `config.js` at the repo root and fill in URL + anon key
-5. `git push` — GitHub Pages auto-deploys
+## Routes
+
+| Path | Who | Purpose |
+|---|---|---|
+| `#/login` | anonymous | Email/password sign-in |
+| `#/register/:token` | anonymous | Client signup via admin invite |
+| `#/admin` | admin | Dashboard overview |
+| `#/admin/clients` | admin | (placeholder) |
+| `#/admin/questionnaires` | admin | (placeholder) |
+| `#/admin/settings` | admin | (placeholder) LLM config |
+| `#/cabinet` | client | (placeholder) |
 
 ## Specs
 
-Read **[docs/requirements.md](docs/requirements.md)** for the canonical spec. Update it before changing behaviour.
-
-## License
-
-Private — personal project.
+Read **[docs/requirements.md](docs/requirements.md)** for the canonical spec.

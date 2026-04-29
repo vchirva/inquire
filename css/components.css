@@ -1,0 +1,125 @@
+/* Buttons */
+.btn {
+  padding: 16px 28px;
+  border: 2px solid var(--ink);
+  background: var(--ink);
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) { background: var(--red); border-color: var(--red); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn .arrow { transition: transform 0.2s; }
+.btn:hover:not(:disabled) .arrow { transform: translateX(4px); }
+
+.btn-outline { background: transparent; color: var(--ink); }
+.btn-outline:hover:not(:disabled) { background: var(--ink); color: white; border-color: var(--ink); }
+
+.btn-red { background: var(--red); border-color: var(--red); }
+.btn-red:hover:not(:disabled) { background: var(--red-dark); border-color: var(--red-dark); }
+
+.btn-sm { padding: 10px 18px; font-size: 11px; }
+
+.btn-block { width: 100%; }
+
+/* Inputs */
+.field { display: flex; flex-direction: column; gap: 8px; }
+
+.field-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.input,
+.select,
+.textarea {
+  border: 1px solid var(--line);
+  background: var(--bg);
+  padding: 14px 16px;
+  font-size: 14px;
+  color: var(--ink);
+  transition: border-color 0.15s;
+  width: 100%;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--ink);
+}
+
+.input::placeholder { color: var(--ink-mute); }
+
+.field-error {
+  font-size: 12px;
+  color: var(--red);
+  font-weight: 600;
+}
+
+.field-hint {
+  font-size: 12px;
+  color: var(--ink-mute);
+}
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  padding: 5px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  align-items: center;
+  gap: 6px;
+}
+
+.badge.live { background: var(--green); color: white; }
+.badge.draft { background: var(--bg-alt); color: var(--ink-soft); border: 1px solid var(--line); }
+.badge.closed { background: var(--ink); color: white; }
+.badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* Avatar */
+.avatar {
+  width: 36px; height: 36px;
+  background: var(--red);
+  color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.avatar.sm { width: 32px; height: 32px; font-size: 12px; }
+.avatar.lg { width: 48px; height: 48px; font-size: 16px; }
+.avatar.dark { background: var(--ink); }
+
+/* Empty state */
+.empty {
+  text-align: center;
+  padding: 64px 32px;
+  color: var(--ink-mute);
+}
+
+.empty-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+
+.empty-text { font-size: 14px; max-width: 400px; margin: 0 auto 24px; }

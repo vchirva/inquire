@@ -244,14 +244,19 @@ create or replace function handle_new_user()
 returns trigger
 language plpgsql
 security definer
+set search_path = public
 as $$
 begin
-  insert into profiles (id, role, full_name)
+  insert into public.profiles (id, role, full_name)
   values (
     new.id,
-    coalesce((new.raw_user_meta_data->>'role')::user_role, 'client'),
-    new.raw_user_meta_data->>'full_name'
+    'client'::user_role,
+    coalesce(new.raw_user_meta_data->>'full_name', new.email)
   );
+  return new;
+exception when others then
+  -- Don't block auth signup if profile creation fails; surface as a warning
+  raise warning 'handle_new_user failed: %', sqlerrm;
   return new;
 end;
 $$;
