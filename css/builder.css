@@ -457,6 +457,26 @@
 .option-input:focus { border-bottom-color: var(--ink); }
 .option-input::placeholder { color: var(--ink-mute); }
 
+.spec-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border: 1px dashed var(--ink-mute);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-mute);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.spec-badge input { display: none; }
+.spec-badge:hover { color: var(--ink); border-color: var(--ink); border-style: solid; }
+.spec-badge.active { background: var(--ink); border-color: var(--ink); border-style: solid; color: white; }
+
 .option-other-pseudo {
   display: flex;
   align-items: center;

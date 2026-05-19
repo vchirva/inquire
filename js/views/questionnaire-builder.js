@@ -16,12 +16,13 @@ let saveStatus = 'idle';   // 'idle' | 'saving' | 'saved' | 'error'
 
 // Question type metadata
 const TYPES = [
-  { id: 'single_choice', label: 'Single choice' },
-  { id: 'multi_choice',  label: 'Multiple choice' },
-  { id: 'text',          label: 'Free text' },
-  { id: 'rating',        label: 'Rating' },
-  { id: 'date',          label: 'Date' },
-  { id: 'ranking',       label: 'Ranking' }
+  { id: 'single_choice',      label: 'Single choice' },
+  { id: 'single_choice_spec', label: 'Single choice + specify' },
+  { id: 'multi_choice',       label: 'Multiple choice' },
+  { id: 'text',               label: 'Free text' },
+  { id: 'rating',             label: 'Rating' },
+  { id: 'date',               label: 'Date' },
+  { id: 'ranking',            label: 'Ranking' }
 ];
 
 const OPTIONS_TYPES = new Set(['single_choice', 'multi_choice', 'ranking']);
@@ -30,6 +31,7 @@ const RATING_DEFAULT = { min: 1, max: 5, min_label: '', max_label: '' };
 // Default options shape per type
 function defaultOptions(type) {
   if (OPTIONS_TYPES.has(type)) return ['', ''];
+  if (type === 'single_choice_spec') return { choices: ['', ''], spec_on: [] };
   if (type === 'rating') return { ...RATING_DEFAULT };
   return null;
 }
@@ -323,6 +325,28 @@ function renderQuestionCard(q, idx) {
 }
 
 function renderTypeEditor(q) {
+  if (q.type === 'single_choice_spec') {
+    const opts = (q.options && typeof q.options === 'object' && !Array.isArray(q.options)) ? q.options : { choices: ['', ''], spec_on: [] };
+    const choices = Array.isArray(opts.choices) ? opts.choices : ['', ''];
+    const specOn = Array.isArray(opts.spec_on) ? opts.spec_on : [];
+    return `
+      <div class="options-editor" data-options-spec>
+        ${choices.map((c, i) => `
+          <div class="option-row">
+            <span class="option-marker radio"></span>
+            <input class="option-input" data-spec-choice="${i}" value="${escapeHtml(c)}" placeholder="Option ${i + 1}" ${state.locked ? 'readonly' : ''} />
+            <label class="spec-badge ${specOn.includes(c) ? 'active' : ''}" title="Show a text field when this option is selected">
+              <input type="checkbox" data-spec-on="${i}" ${specOn.includes(c) ? 'checked' : ''} ${state.locked ? 'disabled' : ''} />
+              specify
+            </label>
+            ${state.locked ? '' : `<button class="q-icon-btn danger" data-spec-remove="${i}" title="Remove option">×</button>`}
+          </div>
+        `).join('')}
+        ${state.locked ? '' : `<button class="add-option-btn" data-spec-add>+ Add option</button>`}
+      </div>
+    `;
+  }
+
   if (OPTIONS_TYPES.has(q.type)) {
     const opts = Array.isArray(q.options) ? q.options : [];
     const showOther = (q.type === 'single_choice' || q.type === 'multi_choice');
@@ -404,6 +428,16 @@ function renderConditionalBar(q, idx) {
 
 function renderConditionValueInput(refQ, value) {
   if (!refQ) return `<input data-cond="value" value="${escapeHtml(value ?? '')}" placeholder="value" />`;
+  if (refQ.type === 'single_choice_spec') {
+    const specOpts = (refQ.options && typeof refQ.options === 'object' && !Array.isArray(refQ.options)) ? refQ.options : { choices: [] };
+    const choices = Array.isArray(specOpts.choices) ? specOpts.choices.filter(c => c && c.trim()) : [];
+    return `
+      <select data-cond="value">
+        <option value="" disabled ${value == null ? 'selected' : ''}>— pick a value —</option>
+        ${choices.map(o => `<option value="${escapeHtml(o)}" ${value === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+      </select>
+    `;
+  }
   if (OPTIONS_TYPES.has(refQ.type)) {
     const opts = Array.isArray(refQ.options) ? refQ.options : [];
     return `
@@ -447,6 +481,56 @@ function wireQuestionCard(q, idx) {
   card.querySelector('[data-action="up"]')?.addEventListener('click', () => moveQuestion(idx, -1));
   card.querySelector('[data-action="down"]')?.addEventListener('click', () => moveQuestion(idx, 1));
   card.querySelector('[data-action="delete"]')?.addEventListener('click', () => deleteQuestion(q));
+
+  // Options editing for single_choice_spec
+  if (q.type === 'single_choice_spec') {
+    const opts = q.options || { choices: [], spec_on: [] };
+    if (!Array.isArray(opts.choices)) opts.choices = [];
+    if (!Array.isArray(opts.spec_on)) opts.spec_on = [];
+
+    card.querySelectorAll('[data-spec-choice]').forEach(input => {
+      input.addEventListener('input', e => {
+        const i = Number(input.dataset.specChoice);
+        const oldLabel = opts.choices[i];
+        const newLabel = e.target.value;
+        const specIdx = opts.spec_on.indexOf(oldLabel);
+        if (specIdx !== -1) opts.spec_on[specIdx] = newLabel;
+        opts.choices[i] = newLabel;
+        scheduleSaveQuestion(q);
+      });
+    });
+    card.querySelectorAll('[data-spec-on]').forEach(checkbox => {
+      checkbox.addEventListener('change', e => {
+        const i = Number(checkbox.dataset.specOn);
+        const label = opts.choices[i];
+        const badge = checkbox.closest('.spec-badge');
+        if (e.target.checked) {
+          if (!opts.spec_on.includes(label)) opts.spec_on.push(label);
+          badge?.classList.add('active');
+        } else {
+          opts.spec_on = opts.spec_on.filter(s => s !== label);
+          badge?.classList.remove('active');
+        }
+        saveQuestion(q);
+      });
+    });
+    card.querySelectorAll('[data-spec-remove]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = Number(btn.dataset.specRemove);
+        const label = opts.choices[i];
+        opts.choices.splice(i, 1);
+        opts.spec_on = opts.spec_on.filter(s => s !== label);
+        if (opts.choices.length === 0) opts.choices = [''];
+        saveQuestion(q);
+        paintQuestions();
+      });
+    });
+    card.querySelector('[data-spec-add]')?.addEventListener('click', () => {
+      opts.choices.push('');
+      saveQuestion(q);
+      paintQuestions();
+    });
+  }
 
   // Options editing for choice/ranking
   if (OPTIONS_TYPES.has(q.type)) {
@@ -551,6 +635,13 @@ async function publishQuestionnaire() {
     if (['single_choice', 'multi_choice', 'ranking'].includes(q.type)) {
       const opts = Array.isArray(q.options) ? q.options : [];
       const filled = opts.filter(o => o && o.trim()).length;
+      if (filled < 2) {
+        issues.push(`Question "${(q.text || 'untitled').slice(0, 40)}" needs at least 2 options`);
+      }
+    }
+    if (q.type === 'single_choice_spec') {
+      const choices = Array.isArray(q.options?.choices) ? q.options.choices : [];
+      const filled = choices.filter(c => c && c.trim()).length;
       if (filled < 2) {
         issues.push(`Question "${(q.text || 'untitled').slice(0, 40)}" needs at least 2 options`);
       }
