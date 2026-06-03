@@ -63,6 +63,7 @@ The single source of truth for what Inquire is. Update this as decisions evolve.
 | Type | Options shape | Answer shape |
 |---|---|---|
 | `single_choice` | `["Red", "Green", "Blue"]` | `"Red"` |
+| `single_choice_spec` | `{choices: ["Yes","No"], spec_on: ["Yes"]}` | `{value: "Yes", spec: "peanuts"}` |
 | `multi_choice` | `["A", "B", "C"]` | `["A", "C"]` |
 | `text` | null | `"free text"` |
 | `rating` | `{min: 1, max: 5, min_label?, max_label?}` | `4` |

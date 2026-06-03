@@ -120,21 +120,18 @@ export async function renderRespondent(root, params) {
   });
 
   // Input changes — split: 'change' handles radio/checkbox/date toggles (which
-  // need a repaint to reveal/hide "Other" text fields). 'input' handles text
-  // typing (no repaint, preserves cursor position).
+  // need a repaint to reveal/hide text fields). 'input' handles text typing
+  // (no repaint, preserves cursor position).
   shell.addEventListener('change', (e) => {
     const kind = e.target.getAttribute?.('data-q-input');
     if (!kind) return;
-    // Skip text inputs in 'change' — they're handled by 'input' below
-    if (kind === 'text' || kind === 'other-text') return;
+    if (kind === 'text' || kind === 'other-text' || kind === 'spec-text') return;
     handleInputChange(ctx, e, shell, false);
   });
   shell.addEventListener('input', (e) => {
     const kind = e.target.getAttribute?.('data-q-input');
     if (!kind) return;
-    // Only handle text-typing here. Radios/checkboxes/dates fire 'input' too,
-    // but we ignore that — 'change' handles those and triggers a repaint.
-    if (kind !== 'text' && kind !== 'other-text') return;
+    if (kind !== 'text' && kind !== 'other-text' && kind !== 'spec-text') return;
     handleInputChange(ctx, e, shell, true);
   });
 
@@ -274,7 +271,10 @@ function isVisible(q, answers, allQuestions) {
 }
 
 function matchCondition(answer, op, value) {
-  const a = answer;
+  // Unwrap single_choice_spec answers — conditions compare against the chosen value, not the spec text
+  const a = (answer && typeof answer === 'object' && !Array.isArray(answer) && 'value' in answer)
+    ? answer.value
+    : answer;
   if (op === 'equals') {
     if (Array.isArray(a)) return a.includes(value);
     return String(a) === String(value);
@@ -453,23 +453,49 @@ function paintThanks(ctx, shell) {
 
 function typeLabel(t) {
   return ({
-    single_choice: 'Single choice',
-    multi_choice: 'Multiple choice',
-    text: 'Free text',
-    rating: 'Rating',
-    date: 'Date',
-    ranking: 'Ranking'
+    single_choice:      'Single choice',
+    single_choice_spec: 'Single choice',
+    multi_choice:       'Multiple choice',
+    text:               'Free text',
+    rating:             'Rating',
+    date:               'Date',
+    ranking:            'Ranking'
   })[t] || t;
 }
 
 function renderInput(q, answer) {
-  if (q.type === 'single_choice') return renderSingleChoice(q, answer);
-  if (q.type === 'multi_choice')  return renderMultiChoice(q, answer);
-  if (q.type === 'text')          return renderText(q, answer);
-  if (q.type === 'rating')        return renderRating(q, answer);
-  if (q.type === 'date')          return renderDate(q, answer);
-  if (q.type === 'ranking')       return renderRanking(q, answer);
+  if (q.type === 'single_choice')      return renderSingleChoice(q, answer);
+  if (q.type === 'single_choice_spec') return renderSingleChoiceSpec(q, answer);
+  if (q.type === 'multi_choice')       return renderMultiChoice(q, answer);
+  if (q.type === 'text')               return renderText(q, answer);
+  if (q.type === 'rating')             return renderRating(q, answer);
+  if (q.type === 'date')               return renderDate(q, answer);
+  if (q.type === 'ranking')            return renderRanking(q, answer);
   return '<em>Unsupported type</em>';
+}
+
+function renderSingleChoiceSpec(q, answer) {
+  const opts = (q.options && typeof q.options === 'object' && !Array.isArray(q.options)) ? q.options : { choices: [], spec_on: [] };
+  const choices = Array.isArray(opts.choices) ? opts.choices.filter(c => c && c.trim()) : [];
+  const specOn = Array.isArray(opts.spec_on) ? opts.spec_on : [];
+  const selectedValue = (answer && typeof answer === 'object') ? (answer.value ?? null) : null;
+  const specText = (answer && typeof answer === 'object') ? (answer.spec ?? '') : '';
+  return `
+    <div class="choice-group">
+      ${choices.map(c => {
+        const isSelected = selectedValue === c;
+        const needsSpec = specOn.includes(c);
+        return `
+          <label class="choice-option ${isSelected ? 'selected' : ''}" data-choice>
+            <input type="radio" name="choice" value="${escapeHtml(c)}" ${isSelected ? 'checked' : ''} data-q-input="single-spec" />
+            <span class="choice-marker radio"></span>
+            <span>${escapeHtml(c)}</span>
+          </label>
+          ${isSelected && needsSpec ? `<input type="text" class="choice-other-input" data-q-input="spec-text" value="${escapeHtml(specText)}" placeholder="Please specify…" autofocus />` : ''}
+        `;
+      }).join('')}
+    </div>
+  `;
 }
 
 function renderSingleChoice(q, answer) {
@@ -587,6 +613,25 @@ function handleInputChange(ctx, e, shell, isInputEvent = false) {
     errEl.textContent = '';
   }
 
+  if (kind === 'single-spec') {
+    const value = el.value;
+    const opts = (q.options && typeof q.options === 'object' && !Array.isArray(q.options)) ? q.options : { choices: [], spec_on: [] };
+    const specOn = Array.isArray(opts.spec_on) ? opts.spec_on : [];
+    const prevAnswer = ctx.answers.get(q.id);
+    // Preserve existing spec text if the same choice was already selected
+    const existingSpec = (prevAnswer && typeof prevAnswer === 'object' && prevAnswer.value === value) ? (prevAnswer.spec ?? '') : '';
+    ctx.answers.set(q.id, specOn.includes(value) ? { value, spec: existingSpec } : { value });
+    const labels = shell.querySelectorAll('.choice-group .choice-option');
+    labels.forEach(l => l.classList.remove('selected'));
+    el.closest('.choice-option')?.classList.add('selected');
+    if (!isInputEvent) paint(ctx, shell);
+    return;
+  }
+  if (kind === 'spec-text') {
+    const existing = ctx.answers.get(q.id) ?? {};
+    ctx.answers.set(q.id, { ...existing, spec: el.value });
+    return;
+  }
   if (kind === 'single' || kind === 'single-other') {
     const value = el.value === '__OTHER__' ? '' : el.value;
     ctx.answers.set(q.id, value);
@@ -641,6 +686,8 @@ function isAnswerEmpty(q, a) {
   if (a == null) return true;
   if (Array.isArray(a)) return a.length === 0 || a.every(x => x === '' || x == null);
   if (typeof a === 'string') return a.trim() === '';
+  // single_choice_spec answer: { value, spec? }
+  if (typeof a === 'object') return !a.value || (typeof a.value === 'string' && a.value.trim() === '');
   return false;
 }
 
@@ -752,6 +799,10 @@ async function submit(ctx, shell) {
 function formatAnswerForReview(q, answer) {
   if (answer == null || isAnswerEmpty(q, answer)) {
     return '<span class="empty">— no answer —</span>';
+  }
+  if (q.type === 'single_choice_spec' && answer && typeof answer === 'object') {
+    const label = escapeHtml(answer.value ?? '');
+    return answer.spec ? `${label} — <em>${escapeHtml(answer.spec)}</em>` : label;
   }
   if (q.type === 'multi_choice' && Array.isArray(answer)) {
     return escapeHtml(answer.join(', '));

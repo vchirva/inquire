@@ -211,12 +211,13 @@ function renderBreakdown(ctx) {
 
 function typeLabel(t) {
   return ({
-    single_choice: 'Single choice',
-    multi_choice: 'Multiple choice',
-    text: 'Free text',
-    rating: 'Rating',
-    date: 'Date',
-    ranking: 'Ranking'
+    single_choice:      'Single choice',
+    single_choice_spec: 'Single choice + specify',
+    multi_choice:       'Multiple choice',
+    text:               'Free text',
+    rating:             'Rating',
+    date:               'Date',
+    ranking:            'Ranking'
   })[t] || t;
 }
 
@@ -224,12 +225,54 @@ function renderQuestionBreakdown(q, answers) {
   if (answers.length === 0) {
     return '<div style="font-size:13px; color: var(--ink-mute); padding: 8px 0;">No responses yet.</div>';
   }
+  if (q.type === 'single_choice_spec') return renderSingleChoiceSpecBreakdown(q, answers);
   if (q.type === 'single_choice' || q.type === 'multi_choice') return renderChoiceBreakdown(q, answers);
   if (q.type === 'rating') return renderRatingBreakdown(q, answers);
   if (q.type === 'date') return renderDateBreakdown(answers);
   if (q.type === 'ranking') return renderRankingBreakdown(q, answers);
   if (q.type === 'text') return renderTextBreakdown(answers);
   return '';
+}
+
+function renderSingleChoiceSpecBreakdown(q, answers) {
+  const opts = (q.options && typeof q.options === 'object' && !Array.isArray(q.options)) ? q.options : { choices: [], spec_on: [] };
+  const choices = Array.isArray(opts.choices) ? opts.choices : [];
+  const specOn = Array.isArray(opts.spec_on) ? opts.spec_on : [];
+
+  const tallies = new Map();
+  const specTexts = new Map();
+  for (const c of choices) { tallies.set(c, 0); specTexts.set(c, []); }
+
+  for (const a of answers) {
+    if (a && typeof a === 'object' && 'value' in a) {
+      const c = a.value;
+      tallies.set(c, (tallies.get(c) ?? 0) + 1);
+      if (a.spec && specOn.includes(c)) {
+        if (!specTexts.has(c)) specTexts.set(c, []);
+        specTexts.get(c).push(a.spec);
+      }
+    }
+  }
+
+  const total = answers.length;
+  const rows = choices.map(c => ({ label: c, count: tallies.get(c) ?? 0 }));
+  const barsHtml = renderBars(rows, total);
+
+  const specSections = choices
+    .filter(c => specOn.includes(c) && (specTexts.get(c) ?? []).length > 0)
+    .map(c => {
+      const texts = specTexts.get(c);
+      return `
+        <div style="margin-top: 16px;">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.1em; font-weight:700; color: var(--ink-mute); margin-bottom: 8px;">${escapeHtml(c)} — specifications (${texts.length})</div>
+          <div class="invite-list">
+            ${texts.map(t => `<div style="padding: 8px 0; border-bottom: 1px solid var(--line-soft); font-size: 14px;">${escapeHtml(t)}</div>`).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  return barsHtml + specSections;
 }
 
 function renderChoiceBreakdown(q, answers) {
