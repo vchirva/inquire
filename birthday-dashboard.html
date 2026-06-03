@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Volodymyr's Birthday Weekend — Operations Brief</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,500;1,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:#f5f4f1;color:#181816;line-height:1.5;font-size:14px;-webkit-font-smoothing:antialiased}
+    a{color:inherit}
+
+    /* Top bar */
+    .nav{background:#fff;border-bottom:1px solid rgba(0,0,0,0.09);padding:0 2.5rem;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+    .brand{font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:500;letter-spacing:0.01em;color:#181816;display:flex;align-items:center;gap:10px}
+    .brand em{color:#e30613;font-style:italic}
+    .brand-dot{width:6px;height:6px;background:#e30613;border-radius:50%;margin:0 2px}
+    .nav-right{display:flex;align-items:center;gap:16px}
+    .nav-pill{font-size:11px;font-weight:500;background:#fdf0f1;color:#e30613;border:1px solid rgba(227,6,19,0.15);border-radius:20px;padding:3px 10px}
+    .nav-label{font-size:12px;color:#a09f9a}
+
+    .wrap{max-width:1320px;margin:0 auto;padding:2rem 2.5rem 4rem}
+
+    /* Page header */
+    .page-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:20px;padding-bottom:1.75rem;border-bottom:1px solid rgba(0,0,0,0.09);margin-bottom:2rem}
+    .page-header h1{font-size:30px;font-weight:600;letter-spacing:-0.02em;line-height:1.2;color:#181816;max-width:780px}
+    .page-header h1 em{font-style:normal;color:#e30613}
+    .page-meta{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:8px}
+    .page-meta span{font-size:12px;color:#6a6a66;display:flex;align-items:center;gap:5px}
+    .page-meta i{font-size:14px;color:#a09f9a}
+    .badge{background:#181816;color:#fff;font-size:11px;font-weight:600;padding:6px 14px;border-radius:4px;letter-spacing:0.04em;text-transform:uppercase;align-self:flex-start;margin-top:4px}
+
+    /* Metrics */
+    .metrics{display:grid;grid-template-columns:repeat(6,1fr);border:1px solid rgba(0,0,0,0.09);border-radius:8px;overflow:hidden;margin-bottom:2.5rem;background:rgba(0,0,0,0.09);gap:1px}
+    .metric{background:#fff;padding:18px 16px 16px}
+    .metric-accent{width:24px;height:3px;background:#e30613;border-radius:2px;margin-bottom:10px}
+    .metric-val{font-size:24px;font-weight:600;letter-spacing:-0.02em;color:#181816}
+    .metric-lbl{font-size:11px;font-weight:500;color:#6a6a66;margin-top:4px}
+    .metric-sub{font-size:10px;color:#a09f9a;margin-top:2px}
+
+    /* Section headers */
+    .sec-hdr{display:flex;align-items:center;gap:10px;margin:3rem 0 1.25rem}
+    .sec-lbl{font-size:10px;font-weight:700;color:#a09f9a;text-transform:uppercase;letter-spacing:0.12em;white-space:nowrap}
+    .sec-cnt{font-size:10px;color:#a09f9a;background:#eeede9;border:1px solid rgba(0,0,0,0.09);border-radius:20px;padding:1px 7px}
+    .sec-line{flex:1;height:1px;background:rgba(0,0,0,0.09)}
+
+    /* Schedule */
+    .schedule{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+    .day{background:#fff;border:1px solid rgba(0,0,0,0.09);border-radius:8px;padding:22px;position:relative;overflow:hidden}
+    .day::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:#e30613}
+    .day-hdr{display:flex;align-items:baseline;gap:8px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid rgba(0,0,0,0.09)}
+    .day-num{font-size:28px;font-weight:600;letter-spacing:-0.03em;line-height:1}
+    .day-month{font-size:11px;color:#6a6a66;text-transform:uppercase;letter-spacing:0.1em;font-weight:600}
+    .day-tag{font-size:9px;color:#e30613;background:#fdf0f1;border:1px solid rgba(227,6,19,0.15);border-radius:20px;padding:3px 9px;margin-left:auto;text-transform:uppercase;letter-spacing:0.08em;font-weight:700}
+    .slot{padding:10px 0;border-bottom:1px solid rgba(0,0,0,0.05)}
+    .slot:last-child{border-bottom:none;padding-bottom:0}
+    .slot-time{font-size:10px;color:#a09f9a;font-weight:600;letter-spacing:0.06em;text-transform:uppercase}
+    .slot-name{font-size:13px;font-weight:500;color:#181816;margin-top:2px}
+    .slot-loc{font-size:11px;color:#6a6a66;margin-top:3px;display:flex;align-items:center;gap:4px}
+    .slot-loc i{font-size:12px;color:#a09f9a}
+    .slot-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}
+    .slot-tag{font-size:9px;color:#8a5200;background:#fdf6ed;border:1px solid rgba(180,100,0,0.15);border-radius:2px;padding:1px 6px;text-transform:uppercase;letter-spacing:0.04em;font-weight:600}
+
+    /* Table */
+    .table-wrap{background:#fff;border:1px solid rgba(0,0,0,0.09);border-radius:8px;overflow:hidden;overflow-x:auto}
+    table{width:100%;border-collapse:collapse;font-size:13px;min-width:780px}
+    th{background:#eeede9;text-align:left;padding:11px 14px;font-size:10px;font-weight:700;color:#6a6a66;text-transform:uppercase;letter-spacing:0.08em;border-bottom:1px solid rgba(0,0,0,0.09);white-space:nowrap}
+    td{padding:13px 14px;border-bottom:1px solid rgba(0,0,0,0.05);vertical-align:top}
+    tr:last-child td{border-bottom:none}
+    tbody tr:hover td{background:#fafaf7}
+    .nm{font-weight:600;color:#181816}
+    .meta{color:#6a6a66;font-size:12px;margin-top:2px}
+    .pax-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#181816;background:#eeede9;border-radius:20px;padding:2px 8px;font-weight:600}
+    .pax-chip i{font-size:11px;color:#6a6a66}
+    .pill{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:2px;text-transform:uppercase;letter-spacing:0.05em;background:#eeede9;color:#6a6a66;border:1px solid rgba(0,0,0,0.09)}
+    .pill.yes{background:#f0f8f2;color:#166b30;border-color:rgba(22,140,60,0.18)}
+    .pill.no{background:#fafaf7;color:#a09f9a}
+    .pill.maybe{background:#fdf6ed;color:#8a5200;border-color:rgba(180,100,0,0.15)}
+    .pill.red{background:#fdf0f1;color:#b50010;border-color:rgba(227,6,19,0.15)}
+    .pill.blue{background:#edf7fb;color:#005f80;border-color:rgba(0,130,170,0.15)}
+    .pill.early{background:#f4f0fd;color:#4a2faa;border-color:rgba(100,70,200,0.15)}
+
+    /* Roster cards */
+    .rosters{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+    .roster{background:#fff;border:1px solid rgba(0,0,0,0.09);border-radius:8px;padding:20px;display:flex;flex-direction:column}
+    .roster-hdr{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid rgba(0,0,0,0.09)}
+    .roster-icon{width:34px;height:34px;background:#fdf0f1;color:#e30613;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px}
+    .roster-title{font-size:14px;font-weight:600}
+    .roster-sub{font-size:11px;color:#a09f9a;margin-top:1px}
+    .roster-count{font-size:11px;color:#181816;margin-left:auto;background:#eeede9;border:1px solid rgba(0,0,0,0.09);border-radius:20px;padding:2px 10px;font-weight:600}
+    .roster-list{list-style:none;padding:0;flex:1}
+    .roster-list li{padding:7px 0;font-size:13px;display:flex;justify-content:space-between;align-items:baseline;gap:8px;border-bottom:1px solid rgba(0,0,0,0.04)}
+    .roster-list li:last-child{border-bottom:none}
+    .roster-list .annot{font-size:10px;color:#a09f9a;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;flex-shrink:0}
+    .roster-list .annot.tentative{color:#8a5200}
+    .roster-foot{margin-top:14px;padding-top:12px;border-top:1px dashed rgba(0,0,0,0.12);font-size:11.5px;color:#6a6a66;line-height:1.55}
+    .roster-foot strong{color:#181816;font-weight:600}
+    .size-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+    .size-cell{background:#fafaf7;border:1px solid rgba(0,0,0,0.06);border-radius:4px;padding:7px 8px;text-align:center}
+    .size-cell .size-val{font-size:16px;font-weight:600;color:#181816;display:block}
+    .size-cell .size-lbl{font-size:9px;color:#a09f9a;text-transform:uppercase;letter-spacing:0.08em;font-weight:600}
+
+    /* Note grids */
+    .notes-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+    .note-card{background:#fff;border:1px solid rgba(0,0,0,0.09);border-radius:8px;padding:14px 16px}
+    .note-card.urgent{border-color:rgba(227,6,19,0.3)}
+    .note-card.urgent .note-name i{color:#e30613}
+    .note-name{font-size:13px;font-weight:600;color:#181816;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+    .note-name i{color:#6a6a66;font-size:15px}
+    .note-body{font-size:12.5px;color:#444441;line-height:1.55}
+    .note-tag{display:inline-block;font-size:9px;color:#a09f9a;background:#fafaf7;border:1px solid rgba(0,0,0,0.06);border-radius:2px;padding:1px 6px;margin-left:6px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;vertical-align:middle}
+    .note-tag.urgent{color:#e30613;background:#fdf0f1;border-color:rgba(227,6,19,0.15)}
+
+    /* Footer */
+    .footer{margin-top:3rem;padding-top:1.5rem;border-top:1px solid rgba(0,0,0,0.09);font-size:11px;color:#a09f9a;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+    .footer em{color:#e30613;font-style:normal;font-weight:500}
+
+    @media (max-width:1100px){.schedule{grid-template-columns:1fr}.rosters{grid-template-columns:1fr}}
+    @media (max-width:900px){.metrics{grid-template-columns:repeat(3,1fr)}.notes-grid{grid-template-columns:1fr}}
+    @media (max-width:560px){.metrics{grid-template-columns:repeat(2,1fr)}.wrap{padding:1.5rem 1.25rem}.nav{padding:0 1.25rem;height:56px}.brand{font-size:20px}}
+
+    @media print{
+      .nav{position:static;border-bottom:1px solid #ccc}
+      body{background:#fff}
+      .day,.roster,.note-card,.table-wrap,.metric{box-shadow:none;page-break-inside:avoid}
+      .sec-hdr{page-break-after:avoid}
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="brand">Volodymyr<span class="brand-dot"></span><em>Birthday Weekend</em></div>
+  <div class="nav-right">
+    <span class="nav-pill">Operations brief</span>
+    <span class="nav-label">15–17 June 2026 · Praia do Canal</span>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <div class="page-header">
+    <div>
+      <h1>Praia do Canal Nature Retreat — <em>guest manifest &amp; activity plan</em></h1>
+      <div class="page-meta">
+        <span><i class="ti ti-calendar"></i> Mon 15 – Wed 17 June 2026</span>
+        <span><i class="ti ti-map-pin"></i> Aljezur, Algarve</span>
+        <span><i class="ti ti-users"></i> ~28 guests · 13 households</span>
+        <span><i class="ti ti-user-heart"></i> Hosts: Volodymyr &amp; Olga Chyrva</span>
+      </div>
+    </div>
+    <span class="badge">For venue use</span>
+  </div>
+
+  <!-- METRICS -->
+  <div class="metrics">
+    <div class="metric"><div class="metric-accent"></div><div class="metric-val">~28</div><div class="metric-lbl">Total guests</div><div class="metric-sub">13 households</div></div>
+    <div class="metric"><div class="metric-accent"></div><div class="metric-val">5–9</div><div class="metric-lbl">Transfer pax</div><div class="metric-sub">2 confirmed · 1 TBD</div></div>
+    <div class="metric"><div class="metric-accent"></div><div class="metric-val">12</div><div class="metric-lbl">E-bikes</div><div class="metric-sub">8 M · 3 S · 1 L</div></div>
+    <div class="metric"><div class="metric-accent"></div><div class="metric-val">≈12</div><div class="metric-lbl">Balloon riders</div><div class="metric-sub">+3 tentative · 06:00 start</div></div>
+    <div class="metric"><div class="metric-accent"></div><div class="metric-val">≈13</div><div class="metric-lbl">Horse riders</div><div class="metric-sub">+1 toddler on pony</div></div>
+    <div class="metric"><div class="metric-accent"></div><div class="metric-val">5</div><div class="metric-lbl">Special dietary</div><div class="metric-sub">vegetarian · kid · allergies</div></div>
+  </div>
+
+  <!-- SCHEDULE -->
+  <div class="sec-hdr">
+    <span class="sec-lbl">Schedule</span>
+    <span class="sec-cnt">3 days</span>
+    <div class="sec-line"></div>
+  </div>
+
+  <div class="schedule">
+
+    <div class="day">
+      <div class="day-hdr">
+        <span class="day-num">15</span>
+        <span class="day-month">June · Mon</span>
+        <span class="day-tag">Arrival</span>
+      </div>
+      <div class="slot">
+        <div class="slot-time">From 15:00</div>
+        <div class="slot-name">Arrival &amp; welcome drinks</div>
+        <div class="slot-loc"><i class="ti ti-map-pin"></i> Praia do Canal Nature Retreat</div>
+      </div>
+      <div class="slot">
+        <div class="slot-time">19:00</div>
+        <div class="slot-name">BBQ dinner</div>
+        <div class="slot-loc"><i class="ti ti-map-pin"></i> Zimbro Restaurant</div>
+      </div>
+    </div>
+
+    <div class="day">
+      <div class="day-hdr">
+        <span class="day-num">16</span>
+        <span class="day-month">June · Tue</span>
+        <span class="day-tag">Birthday</span>
+      </div>
+      <div class="slot">
+        <div class="slot-time">06:00 – 10:00</div>
+        <div class="slot-name">Hot air balloon experience</div>
+        <div class="slot-tags"><span class="slot-tag">~12 riders</span><span class="slot-tag">early start</span></div>
+      </div>
+      <div class="slot">
+        <div class="slot-time">08:00 – 11:00</div>
+        <div class="slot-name">Breakfast</div>
+        <div class="slot-loc"><i class="ti ti-map-pin"></i> Azeitona Restaurant</div>
+      </div>
+      <div class="slot">
+        <div class="slot-time">Morning</div>
+        <div class="slot-name">Leisure activities</div>
+        <div class="slot-loc">Horse riding · Bicycles · Spa · Pool</div>
+      </div>
+      <div class="slot">
+        <div class="slot-time">13:00 – 14:30</div>
+        <div class="slot-name">Light lunch</div>
+        <div class="slot-loc"><i class="ti ti-map-pin"></i> Zimbro Restaurant</div>
+      </div>
+      <div class="slot">
+        <div class="slot-time">Afternoon</div>
+        <div class="slot-name">Afternoon activities</div>
+        <div class="slot-loc">Horse · Bicycles · Spa · Pool · Pottery workshop</div>
+      </div>
+      <div class="slot">
+        <div class="slot-time">19:00 – 21:00</div>
+        <div class="slot-name">Birthday dinner</div>
+        <div class="slot-loc"><i class="ti ti-map-pin"></i> Zimbro Restaurant</div>
+      </div>
+      <div class="slot">
+        <div class="slot-time">21:00 – 23:00</div>
+        <div class="slot-name">After-dinner gathering &amp; music</div>
+        <div class="slot-loc"><i class="ti ti-map-pin"></i> Miradouro Restaurant</div>
+      </div>
+      <div class="slot">
+        <div class="slot-time">23:00 – 02:00</div>
+        <div class="slot-name">After party</div>
+        <div class="slot-loc"><i class="ti ti-map-pin"></i> Lobby Bar</div>
+      </div>
+    </div>
+
+    <div class="day">
+      <div class="day-hdr">
+        <span class="day-num">17</span>
+        <span class="day-month">June · Wed</span>
+        <span class="day-tag">Departure</span>
+      </div>
+      <div class="slot">
+        <div class="slot-time">08:00 – 11:00</div>
+        <div class="slot-name">Breakfast</div>
+        <div class="slot-loc"><i class="ti ti-map-pin"></i> Azeitona Restaurant</div>
+      </div>
+      <div class="slot">
+        <div class="slot-time">12:00</div>
+        <div class="slot-name">Check-out</div>
+      </div>
+      <div class="slot">
+        <div class="slot-time">~13:00</div>
+        <div class="slot-name">Group transfer departure</div>
+        <div class="slot-loc">5+ guests leaving with the group</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- GUEST MANIFEST -->
+  <div class="sec-hdr">
+    <span class="sec-lbl">Guest manifest</span>
+    <span class="sec-cnt">13 households</span>
+    <div class="sec-line"></div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Household</th>
+          <th>Pax</th>
+          <th>Arrival</th>
+          <th>Transfer</th>
+          <th>Departure</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><div class="nm">Iryna &amp; Olexandr Chyrva</div><div class="meta">Aunt &amp; uncle of host family</div></td>
+          <td><span class="pax-chip"><i class="ti ti-user"></i> 2</span></td>
+          <td><span class="pill early">14 Jun · 20:55</span><div class="meta">Day before arrival</div></td>
+          <td><span class="pill yes">Transfer</span></td>
+          <td>With group · 17 Jun ~13:00</td>
+        </tr>
+        <tr>
+          <td><div class="nm">Iryna Sapega</div><div class="meta">+ 1 (likely partner)</div></td>
+          <td><span class="pax-chip"><i class="ti ti-user"></i> 2</span></td>
+          <td><span class="pill early">14 Jun · 15:20 to Faro</span></td>
+          <td><span class="pill no">Self</span></td>
+          <td><span class="pill blue">May extend stay</span></td>
+        </tr>
+        <tr>
+          <td><div class="nm">Mariana Smolina + family</div><div class="meta">Includes child Эван (Evan)</div></td>
+          <td><span class="pax-chip"><i class="ti ti-users"></i> 3+</span></td>
+          <td><span class="pill early">14 Jun · 23:00</span></td>
+          <td><span class="pill no">Staying off-site</span><div class="meta">Apartment in Cascais</div></td>
+          <td>From Cascais apartment</td>
+        </tr>
+        <tr>
+          <td><div class="nm">Chyrva family</div><div class="meta">Alexey, Tanya, Noa, Adi (15)</div></td>
+          <td><span class="pax-chip"><i class="ti ti-users"></i> 4</span></td>
+          <td><span class="pill early">14 Jun · late evening</span></td>
+          <td><span class="pill maybe">TBD</span><div class="meta">Vova may lend car, else rent or join transfer</div></td>
+          <td>Continuing PT trip — leaves w/ group</td>
+        </tr>
+        <tr>
+          <td><div class="nm">Darya Chyrva</div><div class="meta">+ Yasya &amp; Yehor (kids, 11 yo)</div></td>
+          <td><span class="pax-chip"><i class="ti ti-users"></i> 3</span></td>
+          <td><span class="pill">Before 15 · morning</span></td>
+          <td><span class="pill yes">Transfer</span></td>
+          <td>With group · 17 Jun ~13:00</td>
+        </tr>
+        <tr>
+          <td><div class="nm">Priscilla &amp; Oleg Chyrva</div><div class="meta">Son &amp; daughter-in-law</div></td>
+          <td><span class="pax-chip"><i class="ti ti-user"></i> 2</span></td>
+          <td>15 Jun · ~13:00 (by car)</td>
+          <td><span class="pill no">Self</span></td>
+          <td>"Whatever parents do"</td>
+        </tr>
+        <tr>
+          <td><div class="nm">Dmytro Kurkin &amp; Daria Shevchenko</div></td>
+          <td><span class="pax-chip"><i class="ti ti-user"></i> 2</span></td>
+          <td>15 Jun · arr. Faro</td>
+          <td><span class="pill no">Self</span></td>
+          <td>Separately · 17 Jun</td>
+        </tr>
+        <tr>
+          <td><div class="nm">Katherine Tuluzova</div><div class="meta">+ 1 (child of unspecified age)</div></td>
+          <td><span class="pax-chip"><i class="ti ti-user"></i> 2</span></td>
+          <td>15 Jun · 17:45</td>
+          <td><span class="pill no">Self</span></td>
+          <td>With group · 17 Jun ~13:00</td>
+        </tr>
+        <tr>
+          <td><div class="nm">Alexey Stoletny</div><div class="meta">Coming from EU · own rental vehicle</div></td>
+          <td><span class="pax-chip"><i class="ti ti-user"></i> 1</span></td>
+          <td>15 Jun · evening</td>
+          <td><span class="pill no">Self · may drive Katherine</span></td>
+          <td>Separately · 17 Jun</td>
+        </tr>
+        <tr>
+          <td><div class="nm">Anastasia Prozor</div></td>
+          <td><span class="pax-chip"><i class="ti ti-user"></i> 1</span></td>
+          <td><span class="pill blue">Local · Portugal</span></td>
+          <td><span class="pill no">Self</span></td>
+          <td>With group · 17 Jun ~13:00</td>
+        </tr>
+        <tr>
+          <td><div class="nm">Andrii Lazorenko</div><div class="meta">+ Kate (companion)</div></td>
+          <td><span class="pax-chip"><i class="ti ti-user"></i> 1+</span></td>
+          <td><span class="pill blue">Local · Portugal</span></td>
+          <td><span class="pill no">Self</span></td>
+          <td>Separately · 17 Jun</td>
+        </tr>
+        <tr>
+          <td><div class="nm">Marina Ehrlich &amp; Nir</div></td>
+          <td><span class="pax-chip"><i class="ti ti-user"></i> 2</span></td>
+          <td><span class="pill blue">Local · Portugal</span></td>
+          <td><span class="pill no">Self</span></td>
+          <td>Separately · 17 Jun</td>
+        </tr>
+        <tr>
+          <td><div class="nm">Syrotyuk family</div><div class="meta">Oleksiy, Iryna, Kira (2 yo)</div></td>
+          <td><span class="pax-chip"><i class="ti ti-users"></i> 3</span></td>
+          <td>Arriving Algarve by car</td>
+          <td><span class="pill no">Self</span></td>
+          <td>Separately · 17 Jun</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ACTIVITY ROSTERS -->
+  <div class="sec-hdr">
+    <span class="sec-lbl">Activity sign-ups</span>
+    <span class="sec-cnt">3 activities</span>
+    <div class="sec-line"></div>
+  </div>
+
+  <div class="rosters">
+
+    <div class="roster">
+      <div class="roster-hdr">
+        <div class="roster-icon"><i class="ti ti-air-balloon"></i></div>
+        <div>
+          <div class="roster-title">Hot air balloon</div>
+          <div class="roster-sub">Tue 16 Jun · 06:00 – 10:00</div>
+        </div>
+        <span class="roster-count">≈12</span>
+      </div>
+      <ul class="roster-list">
+        <li>Alexey Stoletny</li>
+        <li>Anastasia Prozor</li>
+        <li>Darya Chyrva</li>
+        <li>Dmytro Kurkin</li>
+        <li>Daria Shevchenko</li>
+        <li>Iryna Chyrva</li>
+        <li>Olexandr Chyrva</li>
+        <li>Iryna Sapega <span class="annot">+1</span></li>
+        <li>Katherine Tuluzova</li>
+        <li>Kate Lazorenko <span class="annot">via Andrii</span></li>
+        <li>Noa Chyrva</li>
+      </ul>
+      <div class="roster-foot">
+        <strong>Tentative:</strong> Tanya Chyrva (06:00 wake-up hard), Marina &amp; Nir Ehrlich (fear of heights), Priscilla &amp; Oleg Chyrva.<br>
+        <strong>Not joining:</strong> Andrii Lazorenko, Mariana Smolina family, Syrotyuk family.
+      </div>
+    </div>
+
+    <div class="roster">
+      <div class="roster-hdr">
+        <div class="roster-icon"><i class="ti ti-horse-toy"></i></div>
+        <div>
+          <div class="roster-title">Horse riding</div>
+          <div class="roster-sub">Tue 16 Jun · morning &amp; afternoon</div>
+        </div>
+        <span class="roster-count">≈13</span>
+      </div>
+      <ul class="roster-list">
+        <li>Anastasia Prozor</li>
+        <li>Andrii Lazorenko</li>
+        <li>Darya Chyrva</li>
+        <li>Iryna Sapega</li>
+        <li>Katherine Tuluzova</li>
+        <li>Marina Ehrlich <span class="annot">+ Nir?</span></li>
+        <li>Priscilla Chyrva</li>
+        <li>Oleg Chyrva</li>
+        <li>Noa Chyrva</li>
+        <li>Oleksiy Syrotyuk</li>
+        <li>Iryna Ampleikina</li>
+        <li>Kira Syrotiuk <span class="annot">pony · 2 yo</span></li>
+      </ul>
+      <div class="roster-foot">
+        <strong>Maybe:</strong> Tanya Chyrva, Adi Chyrva.<br>
+        <strong>Not joining:</strong> Alexey Stoletny, Alexey Chyrva, Dmytro+Daria, Iryna+Olexandr, Mariana Smolina family.<br>
+        <span style="color:#e30613;font-weight:600;">Request:</span> 1 pony for Kira (2 yo).
+      </div>
+    </div>
+
+    <div class="roster">
+      <div class="roster-hdr">
+        <div class="roster-icon"><i class="ti ti-bike"></i></div>
+        <div>
+          <div class="roster-title">E-bikes</div>
+          <div class="roster-sub">Tue 16 Jun · day activity</div>
+        </div>
+        <span class="roster-count">12</span>
+      </div>
+      <ul class="roster-list">
+        <li>Anastasia Prozor</li>
+        <li>Andrii Lazorenko</li>
+        <li>Darya Chyrva</li>
+        <li>Daria Shevchenko</li>
+        <li>Dmytro Kurkin</li>
+        <li>Iryna Ampleikina <span class="annot">Syrotyuk household</span></li>
+        <li>Iryna Sapega</li>
+        <li>Katherine Tuluzova</li>
+        <li>Marina Ehrlich</li>
+        <li>Oleg Chyrva</li>
+        <li>Oleksiy Syrotyuk</li>
+        <li>Priscilla Chyrva</li>
+      </ul>
+      <div class="roster-foot">
+        <strong>Frame mix</strong> (default · heights not collected · please bring adjustable seatposts):
+        <div class="size-grid">
+          <div class="size-cell"><span class="size-val">3</span><span class="size-lbl">S</span></div>
+          <div class="size-cell"><span class="size-val">8</span><span class="size-lbl">M</span></div>
+          <div class="size-cell"><span class="size-val">1</span><span class="size-lbl">L</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- DIETARY -->
+  <div class="sec-hdr">
+    <span class="sec-lbl">Dietary &amp; allergies</span>
+    <span class="sec-cnt">5 households</span>
+    <div class="sec-line"></div>
+  </div>
+
+  <div class="notes-grid">
+
+    <div class="note-card urgent">
+      <div class="note-name"><i class="ti ti-alert-triangle"></i> Эван (Evan) <span class="note-tag urgent">Severe — child</span></div>
+      <div class="note-body">
+        <strong>No</strong> dairy, gluten, eggs, banana.<br>
+        <strong>Blender required</strong> for meal preparation.<br>
+        <span class="meta">Household: Mariana Smolina.</span>
+      </div>
+    </div>
+
+    <div class="note-card">
+      <div class="note-name"><i class="ti ti-leaf"></i> Priscilla Chyrva <span class="note-tag">Vegetarian</span></div>
+      <div class="note-body">
+        No meat, no fish/seafood. Eats dairy &amp; eggs.<br>
+        <span class="meta">Appears in two households: Priscilla &amp; Oleg + extended Chyrva family group.</span>
+      </div>
+    </div>
+
+    <div class="note-card">
+      <div class="note-name"><i class="ti ti-mood-kid"></i> Adi Chyrva (15) <span class="note-tag">Kid menu</span></div>
+      <div class="note-body">
+        Eats only kid-style food: pizza, pasta (rosé or bolognese), french fries, schnitzel. No experimental dishes.<br>
+        <span class="meta">Household: Chyrva family.</span>
+      </div>
+    </div>
+
+    <div class="note-card">
+      <div class="note-name"><i class="ti ti-fish-off"></i> Katherine Tuluzova <span class="note-tag">Avoid</span></div>
+      <div class="note-body">
+        No lobster.
+      </div>
+    </div>
+
+    <div class="note-card">
+      <div class="note-name"><i class="ti ti-x"></i> Alexey Stoletny <span class="note-tag">Preference</span></div>
+      <div class="note-body">
+        Doesn't eat avocado (not an allergy, but causes discomfort).
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CHILDREN -->
+  <div class="sec-hdr">
+    <span class="sec-lbl">Children</span>
+    <span class="sec-cnt">5 known</span>
+    <div class="sec-line"></div>
+  </div>
+
+  <div class="notes-grid">
+
+    <div class="note-card">
+      <div class="note-name"><i class="ti ti-baby-carriage"></i> Kira Syrotiuk · 2 yo</div>
+      <div class="note-body">Toddler. Will ride pony if available. No specific dietary needs noted.</div>
+    </div>
+
+    <div class="note-card">
+      <div class="note-name"><i class="ti ti-mood-kid"></i> Yasya &amp; Yehor Chyrva · ~11 yo</div>
+      <div class="note-body">With Darya Chyrva. No dietary restrictions noted.</div>
+    </div>
+
+    <div class="note-card">
+      <div class="note-name"><i class="ti ti-mood-kid"></i> Katherine's child · age TBD</div>
+      <div class="note-body">Travelling with Katherine Tuluzova. Age not specified in questionnaire — follow up to plan kids' programme.</div>
+    </div>
+
+    <div class="note-card urgent">
+      <div class="note-name"><i class="ti ti-alert-triangle"></i> Эван (Evan) · age TBD</div>
+      <div class="note-body">Travelling with Mariana Smolina. <strong>Severe dietary restrictions</strong> — see dietary section.</div>
+    </div>
+
+    <div class="note-card">
+      <div class="note-name"><i class="ti ti-mood-kid"></i> Adi Chyrva · 15 yo</div>
+      <div class="note-body">With the Chyrva family group. Kid-menu food only — see dietary.</div>
+    </div>
+
+  </div>
+
+  <!-- COORDINATION -->
+  <div class="sec-hdr">
+    <span class="sec-lbl">Coordination &amp; special notes</span>
+    <span class="sec-cnt">5</span>
+    <div class="sec-line"></div>
+  </div>
+
+  <div class="notes-grid">
+
+    <div class="note-card">
+      <div class="note-name"><i class="ti ti-route"></i> Group transfer · 17 Jun ~13:00</div>
+      <div class="note-body">
+        Confirmed riders: <strong>Anastasia Prozor</strong>, <strong>Darya Chyrva + 2 kids</strong>, <strong>Iryna &amp; Olexandr Chyrva</strong>, <strong>Katherine Tuluzova + 1</strong>.<br>
+        Possible joiner: Chyrva family (4) if no rental car. Plan capacity for up to <strong>13 seats</strong>.
+      </div>
+    </div>
+
+    <div class="note-card">
+      <div class="note-name"><i class="ti ti-car"></i> Pre-arrival transfer · 14 Jun</div>
+      <div class="note-body">
+        Early arrivals on 14 Jun: Iryna+Olexandr (20:55), Iryna Sapega (15:20 Faro), Mariana Smolina (23:00), Chyrva family (late evening).<br>
+        Iryna+Olexandr requested transfer. Others arranged independently.
+      </div>
+    </div>
+
+    <div class="note-card">
+      <div class="note-name"><i class="ti ti-users"></i> Carpool · Alexey ↔ Katherine</div>
+      <div class="note-body">
+        Alexey Stoletny is coming from EU (not US) with his own rental, and will try to coordinate with Katherine's arrival to drive her from the airport.
+      </div>
+    </div>
+
+    <div class="note-card">
+      <div class="note-name"><i class="ti ti-bed"></i> Possible extended stay</div>
+      <div class="note-body">
+        <strong>Iryna Sapega</strong> may be interested in extending her stay at the hotel. Availability to be checked with the venue closer to the date.
+      </div>
+    </div>
+
+    <div class="note-card">
+      <div class="note-name"><i class="ti ti-link"></i> Household overlaps</div>
+      <div class="note-body">
+        The "Chyrva family" group entry mentions aunt Ira &amp; uncle Sasha (= <strong>Iryna &amp; Olexandr Chyrva</strong>) and son+daughter-in-law <strong>Oleg &amp; Priscilla</strong>, who each filled separate responses. Counted once each in this dashboard.
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <span>Generated from guest questionnaire responses · 13 submitted</span>
+    <span>Confidential — for venue operations team · <em>Inquire</em></span>
+  </div>
+
+</div>
+
+</body>
+</html>
